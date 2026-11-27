@@ -55,7 +55,7 @@ def _limpiar(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = nombres
     for c in df.columns:
         s = df[c]
-        if s.dtype == object or str(s.dtype).startswith("string"):
+        if s.dtype == object or pd.api.types.is_string_dtype(s):
             txt = s.dropna().astype(str).str.strip()
             if txt.empty:
                 continue
