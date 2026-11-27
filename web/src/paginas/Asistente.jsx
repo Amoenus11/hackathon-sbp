@@ -58,7 +58,7 @@ export default function Asistente() {
           {mensajes.map((m, i) => (
             <div key={i} className={`burbuja burbuja-${m.de} ${m.error ? 'burbuja-error' : ''} ${m.disponible === false ? 'burbuja-aviso' : ''}`}>
               <p className="burbuja-autor">{m.de === 'yo' ? 'Tú' : 'Asistente Syntropy'}</p>
-              <p className="burbuja-texto">{m.texto}</p>
+              <TextoEnriquecido texto={m.texto} />
               {m.segundos != null && <p className="burbuja-meta">Respondió en {Number(m.segundos).toFixed(1)} s</p>}
             </div>
           ))}
@@ -81,4 +81,24 @@ export default function Asistente() {
       </Tarjeta>
     </>
   );
+}
+
+/**
+ * Muestra la respuesta del asistente con **negrita** y listas de guiones, sin interpretar HTML:
+ * todo se construye con elementos de React, así que ningún texto recibido puede inyectar código.
+ */
+function TextoEnriquecido({ texto }) {
+  const enLinea = (t, k) => String(t).split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
+    .map((parte, i) => (/^\*\*[^*]+\*\*$/.test(parte) ? <strong key={`${k}-${i}`}>{parte.slice(2, -2)}</strong> : parte));
+  const bloques = [];
+  let lista = [];
+  const cerrarLista = (k) => { if (lista.length) { bloques.push(<ul key={`ul-${k}`}>{lista}</ul>); lista = []; } };
+  String(texto).split('\n').forEach((linea, k) => {
+    const item = /^\s*[-•]\s+(.*)$/.exec(linea) || /^\s*\*\s+(.*)$/.exec(linea);
+    if (item) { lista.push(<li key={k}>{enLinea(item[1], k)}</li>); return; }
+    cerrarLista(k);
+    if (linea.trim()) bloques.push(<p key={k}>{enLinea(linea, k)}</p>);
+  });
+  cerrarLista('fin');
+  return <div className="burbuja-texto">{bloques}</div>;
 }

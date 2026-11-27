@@ -428,7 +428,11 @@ th.numerica .orden { flex-direction: row-reverse; }
 .burbuja-error { background: #fdf1f0; border-color: #f6cdc8; }
 .burbuja-aviso { background: var(--aviso-fondo); border-color: #f1d9a8; }
 .burbuja-autor { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; opacity: .7; margin: 0 0 .2rem; }
-.burbuja-texto { white-space: pre-wrap; margin: 0; }
+.burbuja-texto { margin: 0; }
+.burbuja-texto p { margin: 0 0 0.55em; }
+.burbuja-texto p:last-child { margin-bottom: 0; }
+.burbuja-texto ul { margin: 0 0 0.55em; padding-left: 1.25em; }
+.burbuja-texto li { margin: 0.15em 0; }
 .burbuja-meta { font-size: .75rem; color: var(--texto-3); margin: .35rem 0 0; }
 .puntos { display: inline-flex; gap: 3px; margin-right: .4rem; vertical-align: middle; }
 .puntos i { width: 6px; height: 6px; border-radius: 50%; background: var(--acento); animation: salto 1s infinite ease-in-out; }

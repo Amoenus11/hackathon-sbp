@@ -35,7 +35,7 @@ function ReglaActiva({ regla }) {
   if (!regla) return null;
   const partes = [`sube o baja ${regla.mov_min_posiciones} o más posiciones`];
   if (regla.mov_cambio_lider) partes.push('cambia el líder');
-  partes.push(`su saldo varía más de ${regla.mov_var_saldo_pct} %`);
+  partes.push(`su saldo varía ${regla.mov_var_saldo_pct} % o más`);
   return (
     <p className="regla-activa">
       <strong>Regla de movimiento significativo:</strong> un banco se marca si {partes.join(', o ')}.{' '}
@@ -98,6 +98,18 @@ export function EntrePeriodos() {
             return (
               <>
                 <ReglaActiva regla={m.regla} />
+                {m.resumen && (
+                  <p className="nota">
+                    Con esta regla se marcan {m.resumen.significativos} de {m.resumen.total} movimientos ({pct(m.resumen.pct_marcados, 1)}).
+                    {m.resumen.var_p90_pct != null && <>En estos datos, la variación de saldo típica (mediana) es {pct(m.resumen.var_mediana_pct, 1)} y el 90 % de los bancos varía menos de {pct(m.resumen.var_p90_pct, 1)}: un umbral cercano a ese valor marca solo los casos más extremos (ver Metodología).</>}
+                  </p>
+                )}
+                {m.meses_entre > 1 && (
+                  <p className="aviso-bloqueo" role="status">
+                    Ojo: {etiquetaPeriodo(m.desde, meta)} y {etiquetaPeriodo(m.hasta, meta)} están a {m.meses_entre} meses de distancia. Una variación de saldo
+                    acumula todos esos meses, así que con el mismo umbral se marcarán muchos más bancos que entre meses seguidos.
+                  </p>
+                )}
                 <div className="rejilla-dos">
                   <Tarjeta
                     titulo="Explicación automática"
@@ -125,7 +137,7 @@ export function EntrePeriodos() {
                     <Grafico opcion={opcionPendiente(paraGrafico, etiquetas)} alto={420} etiqueta="Gráfico de pendiente con la posición de cada banco en ambos períodos" />
                   </Tarjeta>
                 </div>
-                <Tarjeta titulo="Movimientos de posición" subtitulo={`${filas.length} filas · Cambio = posición anterior − posición actual (positivo = sube)`} id="tabla-movimientos">
+                <Tarjeta titulo="Movimientos de posición" subtitulo={`${filas.length} filas · Cambio = posición anterior − posición actual (positivo = sube) · Frente al sector = variación del banco − variación de todo el ranking, en puntos porcentuales`} id="tabla-movimientos">
                   <TablaOrdenable
                     etiqueta="Movimientos de posición"
                     claveFila={(f) => `${f.ranking}-${f.codigo_banco}`}
@@ -140,6 +152,10 @@ export function EntrePeriodos() {
                       { clave: 'saldo_anterior', titulo: 'Saldo antes', numerica: true, valor: (f) => num(f.saldo_anterior), render: (f) => monto(f.saldo_anterior) },
                       { clave: 'saldo_actual', titulo: 'Saldo ahora', numerica: true, valor: (f) => num(f.saldo_actual), render: (f) => monto(f.saldo_actual) },
                       { clave: 'var_saldo_pct', titulo: 'Var. saldo', numerica: true, valor: (f) => num(f.var_saldo_pct), render: (f) => variacion(f.var_saldo_pct) },
+                      {
+                        clave: 'var_vs_sector_pp', titulo: 'Frente al sector', numerica: true, valor: (f) => num(f.var_vs_sector_pp),
+                        render: (f) => (f.var_vs_sector_pp == null ? '—' : variacion(f.var_vs_sector_pp).replace(' %', ' pp')),
+                      },
                       {
                         clave: 'significativo', titulo: 'Significativo', valor: (f) => (f.significativo ? 1 : 0),
                         render: (f) => (f.significativo

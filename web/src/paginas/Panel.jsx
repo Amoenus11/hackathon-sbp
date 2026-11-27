@@ -30,7 +30,7 @@ export default function Panel() {
                 <KPI
                   titulo="Cartera local válida" valor={montoCorto(p.kpis.cartera_total)}
                   detalle={`${monto(p.kpis.cartera_total)} u.m.`}
-                  variacion={varCartera != null ? `${variacion(varCartera)} vs ${etiquetaPeriodo(p.fecha_anterior, meta)}` : null}
+                  variacion={varCartera != null ? `${variacion(varCartera)} vs ${etiquetaPeriodo(p.fecha_anterior, meta)}${p.meses_desde_anterior > 1 ? ` (${p.meses_desde_anterior} meses)` : ''}` : null}
                   tendencia={Number(varCartera) >= 0 ? 'sube' : 'baja'}
                   ayuda="Suma del saldo de todas las operaciones que superaron los filtros E1 a E4"
                 />
@@ -41,8 +41,19 @@ export default function Panel() {
                   detalle={`${pct(p.kpis.pct_excluidas, 2)} del total · reglas E1–E4`}
                   ayuda="Duplicados, destino extranjero, saldo no positivo y actividad no catalogada"
                 />
-                {p.indicadores?.morosidad_pct != null && (
-                  <KPI titulo="Cartera con atraso" valor={pct(p.indicadores.morosidad_pct, 2)} detalle="saldo con días de mora / saldo válido (indicador adicional)" />
+                {p.indicadores?.morosa_pct != null && (
+                  <KPI
+                    titulo="Cartera morosa" valor={pct(p.indicadores.morosa_pct, 2)}
+                    detalle="más de 30 y hasta 90 días de atraso (indicador adicional)"
+                    ayuda="Acuerdo 4-2013 de la SBP, art. 2, num. 13: facilidad con importes impagos de más de 30 y hasta 90 días. Se mide sobre todo el saldo de la facilidad."
+                  />
+                )}
+                {p.indicadores?.vencida_pct != null && (
+                  <KPI
+                    titulo="Cartera vencida" valor={pct(p.indicadores.vencida_pct, 2)}
+                    detalle="más de 90 días de atraso (sobregiros: más de 30)"
+                    ayuda="Acuerdo 4-2013 de la SBP, art. 2, num. 14: más de 90 días; los sobregiros pasan a vencidos al superar 30 días."
+                  />
                 )}
               </div>
 

@@ -15,6 +15,7 @@ mkdirSync(salida, { recursive: true });
 for (const [tipo, fn] of Object.entries(generar)) writeFileSync(join(salida, `${tipo}.csv`), fn(periodos, comparaciones));
 for (const p of periodos) {
   const r = p.reconciliaciones.map((x) => `${x.id}:${x.ok ? 'ok' : 'FALLA'}`).join(' ');
+  if (p.archivos.length > 1) console.log(`${p.fecha}  aviso: este período reúne ${p.archivos.length} archivos (${p.archivos.join(', ')}).`);
   console.log(`${p.fecha}  leídas ${p.filas_leidas}  E1 ${p.cascada.E1}  E2 ${p.cascada.E2}  E3 ${p.cascada.E3}  E4 ${p.cascada.E4}  universo ${p.universo}  cuadra ${p.cuadra ? 'sí' : 'NO'}  ${r}`);
 }
 console.log(`Listo en ${Date.now() - inicio} ms → ${salida}/`);

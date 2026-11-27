@@ -1,7 +1,7 @@
 // Carga los catálogos y los archivos AT03 desde una carpeta (lo usan el servidor, la CLI y las pruebas).
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { cargarCatalogos, procesarArchivo } from './motor.js';
+import { cargarCatalogos, procesarArchivos } from './motor.js';
 
 export function leerCatalogos(carpeta) {
   const leer = (n) => readFileSync(join(carpeta, n), 'utf8');
@@ -13,12 +13,12 @@ export function leerCatalogos(carpeta) {
   });
 }
 
-/** Procesa todos los AT03_*.csv de la carpeta (en orden de nombre) y devuelve los períodos ordenados. */
+/**
+ * Procesa todos los AT03_*.csv de la carpeta (en orden de nombre) y devuelve los períodos ordenados.
+ * Si un mismo período (Fecha) viene en más de un archivo, sus filas se REÚNEN: ningún archivo
+ * reemplaza en silencio a otro (los cálculos son por Fecha, no por archivo).
+ */
 export function procesarCarpeta(carpeta, catalogos) {
   const archivos = readdirSync(carpeta).filter((n) => /^AT03.*\.csv$/i.test(n)).sort();
-  const periodos = new Map();
-  for (const nombre of archivos) {
-    for (const p of procesarArchivo(readFileSync(join(carpeta, nombre), 'utf8'), nombre, catalogos)) periodos.set(p.fecha, p);
-  }
-  return [...periodos.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  return procesarArchivos(archivos.map((nombre) => ({ texto: readFileSync(join(carpeta, nombre), 'utf8'), nombre })), catalogos);
 }

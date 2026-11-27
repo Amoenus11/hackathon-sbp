@@ -292,7 +292,30 @@ export default function Metodologia() {
           <li><strong>Sumamos al centavo.</strong> Trabajamos con centavos enteros, así que no hay errores de redondeo. La ponderación usa como denominador toda la cartera válida del banco y se redondea a 4 decimales.</li>
           <li><strong>Ordenamos y comparamos.</strong> Mayor saldo = 1.er lugar; si dos bancos empatan, va primero el código menor. Al cargar un mes nuevo, se recalcula todo y se señalan los movimientos que cumplen la regla configurada.</li>
           <li><strong>Comprobamos que todo cuadre.</strong> Filas leídas = exclusiones + universo; subactividades = actividad; actividades = cartera total del banco; bancos = universo.</li>
+          <li><strong>Si un mismo mes viene en varios archivos, se reúnen.</strong> Los cálculos son por Fecha y no por archivo. Cuando el administrador carga un archivo de un mes que ya existe, ese mes se reemplaza y el sistema avisa cuántas filas había y cuántas hay ahora; la fecha debe existir en el calendario.</li>
           <li><strong>La IA explica, no calcula.</strong> El asistente solo lee resultados ya calculados por el motor, que es determinista: los mismos archivos dan siempre los mismos números.</li>
+        </ol>
+      </Tarjeta>
+
+      <Tarjeta titulo="Indicadores adicionales y reglas de análisis" id="indicadores">
+        <ol className="reglas">
+          <li>
+            <strong>Cartera morosa y vencida (norma de la SBP, no del reto).</strong> El instructivo del reto no las define, así que seguimos el
+            {' '}<a href="https://www.superbancos.gob.pa/documentos/leyes_y_regulaciones/acuerdos/2013/Compilado_Acuerdo_4-2013.pdf" target="_blank" rel="noreferrer">Acuerdo 4-2013 de la Superintendencia de Bancos de Panamá</a>
+            {' '}(art. 2, numerales 13 y 14): una facilidad es <em>morosa</em> si tiene importes impagos de más de 30 y hasta 90 días, y <em>vencida</em> si supera los 90 días.
+            Los sobregiros (SB21: 04 y 05) pasan a vencidos al superar los 30 días. La regla clasifica la facilidad completa, por eso se mide sobre todo su saldo.
+            Un atraso de 1 a 30 días no se cuenta como mora.
+          </li>
+          <li>
+            <strong>Movimiento significativo.</strong> El reto deja la regla a cada equipo y pide que sea configurable. Un banco se marca si sube o baja las posiciones indicadas,
+            si cambia el líder (con saldo real: un 0.00 que lidera por desempate no cuenta) o si su saldo varía el porcentaje indicado o más. Entrar a un sector (de 0 a algún saldo) o salir de él
+            se marca siempre, porque un porcentaje sobre una base cero no existe. El umbral de saldo se compara con la distribución real de variaciones (mediana y percentil 90, en Comparar):
+            si marca a demasiados bancos, deja de ser «significativo».
+          </li>
+          <li>
+            <strong>Frente al sector.</strong> Además del porcentaje, se muestra cuántos puntos porcentuales crece el banco por encima o por debajo del conjunto de bancos en ese ranking:
+            un banco que crece 9 % cuando todo el sector crece 9 % no hizo nada especial.
+          </li>
         </ol>
       </Tarjeta>
     </>

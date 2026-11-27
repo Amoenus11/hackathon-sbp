@@ -8,6 +8,8 @@ export const COLUMNAS = {
   calidad: ['Fecha', 'Filas_Leidas', 'E1_Duplicados', 'E2_Destino_Extranjero', 'E3_Saldo_No_Positivo', 'E4_Actividad_No_Catalogada', 'Universo_Local_Valido', 'Saldo_Universo_Local_Valido', 'Cuadra'],
   movimientos: ['Fecha_Anterior', 'Fecha_Actual', 'Ranking', 'Codigo_Banco', 'Banco', 'Posicion_Anterior', 'Posicion_Actual', 'Cambio_Posicion', 'Saldo_Anterior', 'Saldo_Actual', 'Var_Saldo', 'Var_Saldo_Pct', 'Significativo', 'Motivo'],
   excluidas: ['Fecha', 'Fila', 'Numero_Prestamo', 'Codigo_Banco', 'Filtro', 'Motivo'],
+  // Complemento del reporte de calidad (no es uno de los 5 entregables oficiales): alertas que no excluyen filas
+  alertas: ['Fecha', 'Tipo', 'Severidad', 'Cantidad', 'Descripcion', 'Reconciliaciones_Con_Diferencias'],
 };
 
 export function filasRankings(periodos) {
@@ -69,10 +71,21 @@ export function filasExcluidas(periodos) {
   return filas;
 }
 
+export function filasAlertas(periodos) {
+  const filas = [];
+  for (const p of periodos) {
+    const fallan = p.reconciliaciones.filter((r) => !r.ok).map((r) => r.id).join(' ');
+    for (const a of p.alertas) filas.push({ Fecha: p.fecha, Tipo: a.tipo, Severidad: a.severidad, Cantidad: a.cantidad, Descripcion: a.texto, Reconciliaciones_Con_Diferencias: fallan });
+    for (const r of p.reconciliaciones.filter((x) => !x.ok)) filas.push({ Fecha: p.fecha, Tipo: `reconciliacion_${r.id}`, Severidad: 'alta', Cantidad: r.diferencias, Descripcion: `No cuadra: ${r.nombre}`, Reconciliaciones_Con_Diferencias: fallan });
+  }
+  return filas;
+}
+
 export const generar = {
   rankings: (periodos) => escribirCsv(COLUMNAS.rankings, filasRankings(periodos)),
   desglose: (periodos) => escribirCsv(COLUMNAS.desglose, filasDesglose(periodos)),
   calidad: (periodos) => escribirCsv(COLUMNAS.calidad, filasCalidad(periodos)),
   movimientos: (_periodos, comparaciones) => escribirCsv(COLUMNAS.movimientos, filasMovimientos(comparaciones)),
   excluidas: (periodos) => escribirCsv(COLUMNAS.excluidas, filasExcluidas(periodos)),
+  alertas: (periodos) => escribirCsv(COLUMNAS.alertas, filasAlertas(periodos)),
 };
