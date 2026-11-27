@@ -377,3 +377,10 @@
 .pt-tres { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 .pt-icono-linea { width: 44px; height: 44px; fill: none; stroke: #0e7c86; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: .6rem; }
 @media (max-width: 760px) { .pt-tres { grid-template-columns: 1fr !important; } }
+
+.pt-tec { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+.pt-tec .pt-tarjeta-titulo { font-size: 1.05rem; }
+.pt-rubrica { list-style: none; margin: 1.2rem 0 0; padding: 0 0 2rem; display: grid; gap: .55rem; max-width: 980px; }
+.pt-rubrica li { display: flex; gap: 1rem; align-items: center; background: #fff; border-radius: 16px; padding: .7rem 1rem; box-shadow: 0 6px 22px #0f172a0d; font-size: 1.02rem; text-align: left; }
+.pt-rub-pts { flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; background: linear-gradient(135deg, #0e7c86, #5b4bdb); }
+@media (max-width: 900px) { .pt-tec { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }

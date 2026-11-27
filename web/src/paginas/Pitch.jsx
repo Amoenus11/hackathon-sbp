@@ -239,6 +239,58 @@ function Confianza({ cifras }) {
   );
 }
 
+// Tecnología elegida y por qué (criterio «Calidad técnica»)
+function Tecnologia() {
+  const piezas = [
+    { que: 'React + Vite', por: 'La pantalla. Lo pide la lámina 7; carga rápido y cada perfil ve solo lo suyo.' },
+    { que: 'Node.js + Express', por: 'La API. Un solo lenguaje, JavaScript, de punta a punta: los tres lo explicamos.' },
+    { que: 'Centavos enteros (BigInt)', por: 'El cálculo. Nunca decimales flotantes: las sumas cuadran al centavo.' },
+    { que: 'Python de referencia', por: 'Una segunda implementación independiente que compara las 5 exportaciones.' },
+    { que: 'node --test', por: `${HECHOS.pruebas} pruebas automáticas en cada cambio: reglas, perfiles y cargas.` },
+    { que: 'Docker + Cloudflare', por: 'Publicada sin puertos abiertos; también corre local con npm start (R1).' },
+    { que: 'Claude, aislado', por: 'La IA solo lee y explica las cifras ya calculadas; nunca calcula (Sección 9).' },
+    { que: 'Sin base de datos externa', por: 'Los CSV del reto son la fuente: todo se recalcula en menos de 2 s (R2).' },
+  ];
+  return (
+    <div className="pt-contenido">
+      <p className="pt-antetitulo">La tecnología, y por qué</p>
+      <h2 className="pt-titular">Simple de explicar, difícil de equivocarse.</h2>
+      <div className="pt-tarjetas pt-tec">
+        {piezas.map((t) => (
+          <div key={t.que} className="pt-tarjeta">
+            <span className="pt-tarjeta-titulo">{t.que}</span>
+            <span className="pt-tarjeta-texto">{t.por}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Los 7 criterios de la rúbrica (Sección 11), cada uno con su respuesta
+function Rubrica() {
+  const criterios = [
+    ['Exactitud', 25, `Cascada E1–E4, 6 rankings, SB21 y R1–R4 al centavo; ${HECHOS.diferencias} diferencias contra Python.`],
+    ['Funcionalidad', 15, 'Panel, rankings, filtros, gráficos, reportes y exportaciones; 3 perfiles validados en el servidor.'],
+    ['Automatización', 15, 'Cargar un mes y recalcular solo, comparar, puente del cambio, alertas y reporte descargable.'],
+    ['Usabilidad', 15, 'Portada de tres preguntas, presentación guiada, fuente y «datos ficticios» siempre visibles.'],
+    ['Calidad técnica', 10, `React + Node, código ordenado, ${HECHOS.pruebas} pruebas, README y repositorio público sin claves.`],
+    ['Innovación', 10, 'Anatomía del cambio, «Tu lectura», semáforo con firma, carta al banco, IA que explica.'],
+    ['Presentación', 10, 'Este pitch con cifras en vivo, y los tres integrantes explicamos el código (R6).'],
+  ];
+  return (
+    <div className="pt-contenido">
+      <p className="pt-antetitulo">Lo que pide la rúbrica</p>
+      <h2 className="pt-titular">Cada criterio, con su respuesta.</h2>
+      <ol className="pt-rubrica">
+        {criterios.map(([c, pts, txt]) => (
+          <li key={c}><span className="pt-rub-pts">{pts}</span><span><b>{c}.</b> {txt}</span></li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function Impacto() {
   const puntos = [
     'Publicar sin miedo: todos los controles en verde y una firma',
@@ -280,6 +332,8 @@ const DIAPOSITIVAS = [
   { titulo: 'Tres personas, tres preguntas', Componente: TresPersonas },
   { titulo: 'Demostración', Componente: Demo },
   { titulo: 'Por qué confiar', Componente: Confianza },
+  { titulo: 'La tecnología, y por qué', Componente: Tecnologia },
+  { titulo: 'Lo que pide la rúbrica', Componente: Rubrica },
   { titulo: 'Impacto', Componente: Impacto },
   { titulo: 'Cierre', Componente: Cierre },
 ];
