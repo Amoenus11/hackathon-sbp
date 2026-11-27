@@ -183,8 +183,9 @@ const subir = (cookie, nombre, contenido) => {
   return pedir('/api/periodos', { method: 'POST', cookie, body: f });
 };
 
-test('API: la calidad de datos exige analista, como dice la documentación', async () => {
-  assert.equal((await pedir('/api/calidad')).status, 401);
+test('API: los conteos de calidad son públicos (Metodología); las filas excluidas exigen analista', async () => {
+  assert.equal((await pedir('/api/calidad')).status, 200);
+  assert.equal((await pedir('/api/excluidas')).status, 401);
   const ana = await entrar('ana', clave('0'));
   assert.equal((await pedir('/api/calidad', { cookie: ana })).status, 200);
 });

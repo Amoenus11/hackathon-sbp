@@ -337,7 +337,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       nota: `Ningún préstamo desaparece sin explicación: ${b.vencian} de ${b.n_terminados} que salieron vencían en ${etiquetaPeriodo(p.fecha)} o antes.`,
     };
   };
-  app.get('/api/calidad', permiso('calidad'), (req, res) => {
+  app.get('/api/calidad', (req, res) => { // conteos agregados: públicos (Metodología); las filas excluidas siguen protegidas
     const p = fechaDe(req);
     const cuarta = r4(p);
     res.json({
