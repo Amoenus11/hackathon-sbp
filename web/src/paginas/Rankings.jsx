@@ -100,6 +100,7 @@ export function RankingDelPeriodo({ fecha, ranking, banco, alElegir }) {
           { clave: 'posicion', titulo: 'Posición', numerica: true, render: (f) => <span className="posicion">{f.posicion}</span> },
           { clave: 'banco', titulo: 'Banco', render: (f) => <NombreBanco codigo={f.codigo_banco} nombre={f.banco} /> },
           { clave: 'saldo_actividad', titulo: 'Saldo de la actividad', numerica: true, valor: (f) => num(f.saldo_actividad), render: (f) => monto(f.saldo_actividad) },
+          { clave: 'total_cartera', titulo: 'Cartera total del banco', numerica: true, valor: (f) => num(f.total_cartera), render: (f) => monto(f.total_cartera) },
           { clave: 'ponderacion_pct', titulo: 'Ponderación', numerica: true, valor: (f) => num(f.ponderacion_pct), render: (f) => pct(f.ponderacion_pct) },
           { clave: 'participacion_pct', titulo: 'Participación', numerica: true, valor: (f) => num(f.participacion_pct), render: (f) => pct(f.participacion_pct, 2) },
           { clave: 'operaciones', titulo: 'Operaciones', numerica: true, render: (f) => entero(f.operaciones) },
