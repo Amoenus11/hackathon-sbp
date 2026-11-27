@@ -97,7 +97,7 @@ function Recorrido({ c, fecha, meta }) {
       </ol>
       <ul className="met-confianza">
         <li><span aria-hidden="true">✓</span> Verificado con una segunda implementación independiente (Python): <b>0 diferencias</b></li>
-        <li><span aria-hidden="true">✓</span> <b>16 pruebas</b> automáticas</li>
+        <li><span aria-hidden="true">✓</span> <b>17 pruebas</b> automáticas</li>
         <li><span aria-hidden="true">✓</span> La IA <b>nunca calcula</b>: solo explica</li>
       </ul>
     </section>

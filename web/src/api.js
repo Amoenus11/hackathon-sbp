@@ -87,6 +87,7 @@ export const api = {
   matriz: (fecha) => solicitar(`/matriz${consulta({ fecha })}`),
   historia: (ranking) => solicitar(`/historia${consulta({ ranking })}`),
   desglose: (fecha, ranking, banco) => solicitar(`/desglose${consulta({ fecha, ranking, banco })}`),
+  anatomia: (hasta, ranking, banco) => solicitar(`/anatomia${consulta({ hasta, ranking, banco })}`),
   movimientos: ({ desde, hasta, ranking }) => solicitar(`/movimientos${consulta({ desde, hasta, ranking })}`),
   calidad: (fecha) => solicitar(`/calidad${consulta({ fecha })}`),
   excluidas: ({ fecha, filtro, pagina }) => solicitar(`/excluidas${consulta({ fecha, filtro, pagina })}`),

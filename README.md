@@ -32,7 +32,7 @@ Abre **http://localhost:3000**. Al arrancar, el sistema calcula los 3 períodos 
 | Comando | Qué hace |
 | --- | --- |
 | `npm start` | Compila la web (React) y arranca el servidor (Node) en el puerto 3000 |
-| `npm test` | Ejecuta las 16 pruebas automáticas (motor, API y sesiones) |
+| `npm test` | Ejecuta las 17 pruebas automáticas (motor, API y sesiones) |
 | `npm run exportar` | Recalcula todo desde `datos/reto/` y escribe las 5 exportaciones en `exportaciones/` |
 | `npm run configurar -- agregar <usuario> <analista\|administrador>` | Agrega un usuario |
 | `npm run dev:api` + `npm run dev:web` | Modo desarrollo (recarga en caliente; web en :5173) |
@@ -104,6 +104,13 @@ Un movimiento es significativo si cumple **cualquiera** de estas condiciones (va
 
 El Administrador cambia estos umbrales en **Parámetros**, sin tocar el código; el cambio queda en el registro.
 
+### Anatomía del cambio (innovación)
+Como un mismo `Numero_Prestamo` aparece mientras está vigente, explicamos **por qué** cambió el saldo de cada
+banco en cada actividad, exacto al centavo: `saldo anterior + préstamos nuevos − préstamos que terminaron +
+variación de los que siguen = saldo actual` (`anatomiaDelCambio` en `motor/motor.js`; prueba en `pruebas/`).
+Se ve como un gráfico de cascada al tocar un banco en *Rankings*, alimenta las explicaciones automáticas y se
+exporta en `anatomia.csv`.
+
 ### Automatizaciones (lámina 8): las 6
 1. Al cargar un período se calculan calidad, rankings, desglose y reconciliaciones automáticamente.
 2. Se identifican los movimientos significativos con la regla configurable.
@@ -126,7 +133,7 @@ Desde la app (*Rankings*, *Calidad*, *Comparar*, *Reportes*) o con `npm run expo
 
 ## 6. Pruebas y verificación (evidencia)
 
-- **`npm test`** — 16 pruebas (`pruebas/`): cascada con casos hechos a mano (una fila extranjera y negativa cuenta
+- **`npm test`** — 17 pruebas (`pruebas/`): cascada con casos hechos a mano (una fila extranjera y negativa cuenta
   solo en E2; `l` minúscula no es `L`; el duplicado se decide por orden de archivo), regla SB21, desempate,
   denominador único, ponderaciones ≈ 100, reconciliaciones, archivos inválidos, perfiles y permisos, carga de un
   período nuevo y comparación automática, columnas exactas de las exportaciones.

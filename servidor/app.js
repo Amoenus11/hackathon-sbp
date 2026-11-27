@@ -244,6 +244,24 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     });
   });
 
+  // --- Anatomía del cambio (para todos): por qué cambió el saldo de un banco entre dos meses
+  app.get('/api/anatomia', (req, res) => {
+    const c = comparacion(req);
+    const macro = rankingDe(req);
+    const banco = req.query.banco ? String(req.query.banco) : null;
+    const filas = c.filas.filter((f) => f.ranking === macro && (!banco || f.codigo_banco === banco)).map((f) => {
+      const a = f.anatomia;
+      return {
+        codigo_banco: f.codigo_banco, banco: f.banco, posicion_anterior: f.posicion_anterior, posicion_actual: f.posicion_actual, cambio: f.cambio,
+        saldo_anterior: aTexto(f.saldo_anterior), saldo_actual: aTexto(f.saldo_actual), var_saldo_pct: f.var_saldo_pct,
+        nuevos: aTexto(a.nuevos), n_nuevos: a.n_nuevos, terminados: aTexto(a.terminados), n_terminados: a.n_terminados,
+        variacion: aTexto(a.variacion), n_siguen: a.n_siguen,
+        cuadra: f.saldo_anterior + a.nuevos - a.terminados + a.variacion === f.saldo_actual,
+      };
+    });
+    res.json({ desde: c.desde, hasta: c.hasta, ranking: macro, filas });
+  });
+
   // --- Calidad de datos
   app.get('/api/calidad', (req, res) => {
     const p = fechaDe(req);

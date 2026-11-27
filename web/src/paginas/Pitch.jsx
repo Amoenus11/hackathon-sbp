@@ -12,7 +12,7 @@ import './pitch.css';
 // Hechos del proyecto que no salen de la API (verificados en el repositorio):
 //  - DIFERENCIAS: resultado de verificacion/comparar.py contra la implementación de referencia en Python.
 //  - PRUEBAS: número de test() en pruebas/*.test.js (ejecuta «npm test» para confirmarlo).
-const HECHOS = { diferencias: 0, exportaciones: 5, pruebas: 16 };
+const HECHOS = { diferencias: 0, exportaciones: 5, pruebas: 17 };
 
 // Cifras en vivo: metadatos (períodos, bancos, rankings) y el panel del período más reciente
 function useCifras() {

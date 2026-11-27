@@ -8,6 +8,8 @@ export const COLUMNAS = {
   calidad: ['Fecha', 'Filas_Leidas', 'E1_Duplicados', 'E2_Destino_Extranjero', 'E3_Saldo_No_Positivo', 'E4_Actividad_No_Catalogada', 'Universo_Local_Valido', 'Saldo_Universo_Local_Valido', 'Cuadra'],
   movimientos: ['Fecha_Anterior', 'Fecha_Actual', 'Ranking', 'Codigo_Banco', 'Banco', 'Posicion_Anterior', 'Posicion_Actual', 'Cambio_Posicion', 'Saldo_Anterior', 'Saldo_Actual', 'Var_Saldo', 'Var_Saldo_Pct', 'Significativo', 'Motivo'],
   excluidas: ['Fecha', 'Fila', 'Numero_Prestamo', 'Codigo_Banco', 'Filtro', 'Motivo'],
+  anatomia: ['Fecha_Anterior', 'Fecha_Actual', 'Ranking', 'Codigo_Banco', 'Banco', 'Saldo_Anterior', 'Prestamos_Nuevos', 'Saldo_Nuevos',
+    'Prestamos_Terminados', 'Saldo_Terminados', 'Prestamos_Que_Siguen', 'Variacion_Que_Siguen', 'Saldo_Actual'],
 };
 
 export function filasRankings(periodos) {
@@ -69,10 +71,28 @@ export function filasExcluidas(periodos) {
   return filas;
 }
 
+export function filasAnatomia(comparaciones) {
+  const filas = [];
+  for (const c of comparaciones) {
+    for (const f of c.filas) {
+      const a = f.anatomia;
+      if (!a) continue;
+      filas.push({
+        Fecha_Anterior: f.fecha_anterior, Fecha_Actual: f.fecha_actual, Ranking: f.ranking, Codigo_Banco: f.codigo_banco, Banco: f.banco,
+        Saldo_Anterior: aTexto(f.saldo_anterior), Prestamos_Nuevos: a.n_nuevos, Saldo_Nuevos: aTexto(a.nuevos),
+        Prestamos_Terminados: a.n_terminados, Saldo_Terminados: aTexto(a.terminados), Prestamos_Que_Siguen: a.n_siguen,
+        Variacion_Que_Siguen: aTexto(a.variacion), Saldo_Actual: aTexto(f.saldo_actual),
+      });
+    }
+  }
+  return filas;
+}
+
 export const generar = {
   rankings: (periodos) => escribirCsv(COLUMNAS.rankings, filasRankings(periodos)),
   desglose: (periodos) => escribirCsv(COLUMNAS.desglose, filasDesglose(periodos)),
   calidad: (periodos) => escribirCsv(COLUMNAS.calidad, filasCalidad(periodos)),
   movimientos: (_periodos, comparaciones) => escribirCsv(COLUMNAS.movimientos, filasMovimientos(comparaciones)),
   excluidas: (periodos) => escribirCsv(COLUMNAS.excluidas, filasExcluidas(periodos)),
+  anatomia: (_periodos, comparaciones) => escribirCsv(COLUMNAS.anatomia, filasAnatomia(comparaciones)),
 };

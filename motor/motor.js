@@ -173,7 +173,11 @@ function procesarPeriodo(fecha, filas, i, cat, archivo, esquema, ahora) {
       diasMora: Number(v[i.Dias_Mora]) || 0,
     });
   }
-  return agregar({ fecha, archivo, cargado: ahora.toISOString(), filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema });
+  const resultado = agregar({ fecha, archivo, cargado: ahora.toISOString(), filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema });
+  // Cada préstamo válido con su banco, actividad y saldo: permite explicar POR QUÉ cambió un saldo
+  // entre dos meses (un mismo Numero_Prestamo aparece mientras está vigente).
+  resultado.prestamos = new Map(universo.map((u) => [u.prestamo, { banco: u.banco, macro: u.macro, saldo: u.saldo }]));
+  return resultado;
 }
 
 function agregar({ fecha, archivo, cargado, filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema }) {
@@ -283,12 +287,40 @@ const millones = (c) => `${numero.format(Number(c) / 1e8)} M`;
 const pctTexto = (p) => `${numero.format(Math.abs(Number(p)))} %`;
 const diezMilesimas = (p) => Math.round(Number(p) * 10000);
 
+/**
+ * Anatomía del cambio entre dos períodos, por actividad y banco (exacta al centavo):
+ *   saldo anterior + préstamos nuevos − préstamos que terminaron + variación de los que siguen = saldo actual
+ * «Nuevo»: aparece este mes en esa actividad y banco. «Terminó»: estaba el mes anterior y ya no (pagado,
+ * vencido o fuera del universo válido). «Sigue»: está en ambos meses (su variación es amortización neta).
+ */
+export function anatomiaDelCambio(anterior, actual) {
+  const clave = (macro, banco) => `${macro}|${banco}`;
+  const datos = new Map();
+  const de = (macro, banco) => {
+    const k = clave(macro, banco);
+    if (!datos.has(k)) datos.set(k, { nuevos: 0n, n_nuevos: 0, terminados: 0n, n_terminados: 0, variacion: 0n, n_siguen: 0 });
+    return datos.get(k);
+  };
+  for (const [id, a] of actual.prestamos) {
+    const p = anterior.prestamos.get(id);
+    const d = de(a.macro, a.banco);
+    if (p && p.macro === a.macro && p.banco === a.banco) { d.variacion += a.saldo - p.saldo; d.n_siguen++; }
+    else { d.nuevos += a.saldo; d.n_nuevos++; }
+  }
+  for (const [id, p] of anterior.prestamos) {
+    const a = actual.prestamos.get(id);
+    if (!a || a.macro !== p.macro || a.banco !== p.banco) { const d = de(p.macro, p.banco); d.terminados += p.saldo; d.n_terminados++; }
+  }
+  return (macro, banco) => datos.get(clave(macro, banco)) || { nuevos: 0n, n_nuevos: 0, terminados: 0n, n_terminados: 0, variacion: 0n, n_siguen: 0 };
+}
+
 export const PARAMETROS_INICIALES = { mov_min_posiciones: 2, mov_cambio_lider: true, mov_var_saldo_pct: '15.00' };
 
 /** Compara dos períodos (anterior → actual): Cambio_Posicion = anterior − actual. */
 export function compararPeriodos(anterior, actual, parametros = PARAMETROS_INICIALES) {
   const filas = [];
   const explicaciones = [];
+  const anatomia = anterior.prestamos && actual.prestamos ? anatomiaDelCambio(anterior, actual) : null;
   for (const macro of ORDEN_RANKINGS) {
     const previo = new Map(anterior.rankings[macro].map((f) => [f.codigo_banco, f]));
     const liderAnterior = anterior.rankings[macro][0];
@@ -309,6 +341,7 @@ export function compararPeriodos(anterior, actual, parametros = PARAMETROS_INICI
         codigo_banco: f.codigo_banco, banco: f.banco, posicion_anterior: p.posicion, posicion_actual: f.posicion, cambio,
         saldo_anterior: p.saldo_actividad, saldo_actual: f.saldo_actividad, var_saldo: varSaldo, var_saldo_pct: varPct,
         significativo: motivos.length > 0, motivos,
+        anatomia: anatomia ? anatomia(macro, f.codigo_banco) : null,
       };
       filas.push(fila);
       if (fila.significativo) explicaciones.push(explicar(fila, macro, liderAnterior, anterior, actual));
@@ -332,6 +365,11 @@ function explicar(f, macro, liderAnterior, anterior, actual) {
       ? antes.get(x.codigo_banco) < f.posicion_anterior && x.posicion > f.posicion_actual
       : antes.get(x.codigo_banco) > f.posicion_anterior && x.posicion < f.posicion_actual))
     .map((x) => x.banco);
+  // El motor del cambio (anatomía): préstamos nuevos frente a los que terminaron
+  const an = f.anatomia;
+  const motor = an && (an.n_nuevos || an.n_terminados)
+    ? ` Detrás del cambio: ${an.n_nuevos} préstamos nuevos (+${millones(an.nuevos)}) y ${an.n_terminados} que terminaron (−${millones(an.terminados)}).`
+    : '';
   let texto;
   let tipo;
   let peso;
@@ -349,7 +387,7 @@ function explicar(f, macro, liderAnterior, anterior, actual) {
     peso = Math.min(99, Math.abs(Number(f.var_saldo_pct || 0)));
     texto = `${f.banco} mantiene el ${ordinal(f.posicion_actual)} lugar en ${titulo}, pero ${saldoTxt}.`;
   }
-  return { tipo, peso, ranking: macro, codigo_banco: f.codigo_banco, texto };
+  return { tipo, peso, ranking: macro, codigo_banco: f.codigo_banco, texto: texto + motor };
 }
 
 // ---------------------------------------------------------------------------- utilidades

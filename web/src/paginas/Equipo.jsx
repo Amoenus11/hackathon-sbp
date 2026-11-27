@@ -42,7 +42,7 @@ const CIFRAS = [
   { valor: numero.format(82500), texto: 'filas leídas' },
   { valor: '6 × 12', texto: 'rankings × bancos' },
   { valor: '0', texto: 'diferencias contra una segunda implementación independiente (Python)', destacada: true },
-  { valor: '16', texto: 'pruebas automáticas' },
+  { valor: '17', texto: 'pruebas automáticas' },
   { valor: '6/6', texto: 'automatizaciones de la lámina 8' },
 ];
 
@@ -62,7 +62,7 @@ const PREGUNTAS = [
   },
   {
     pregunta: '¿Cómo saben que los rankings están bien?',
-    respuesta: 'Una segunda implementación independiente, escrita en Python, da exactamente lo mismo en las 5 exportaciones, celda por celda. Además hay 16 pruebas automáticas y las reconciliaciones R1–R3 cuadran al centavo.',
+    respuesta: 'Una segunda implementación independiente, escrita en Python, da exactamente lo mismo en las 5 exportaciones, celda por celda. Además hay 17 pruebas automáticas y las reconciliaciones R1–R3 cuadran al centavo.',
   },
   {
     pregunta: '¿Qué hace la IA y qué no?',
