@@ -21,6 +21,7 @@ import Calidad from './paginas/Calidad.jsx';
 import Reportes from './paginas/Reportes.jsx';
 import Asistente from './paginas/Asistente.jsx';
 import Equipo from './paginas/Equipo.jsx';
+import Pitch from './paginas/Pitch.jsx';
 import CargarPeriodo from './paginas/admin/CargarPeriodo.jsx';
 import Parametros from './paginas/admin/Parametros.jsx';
 import Catalogos from './paginas/admin/Catalogos.jsx';
@@ -75,6 +76,7 @@ export default function App() {
               {SECCIONES.map((s) => (
                 <Route key={s.clave} path={s.ruta} element={<Protegida seccion={s} />} />
               ))}
+              <Route path="/pitch" element={<Pitch />} />
               <Route path="*" element={<NoEncontrada />} />
             </Routes>
           )}

@@ -32,7 +32,7 @@ Abre **http://localhost:3000**. Al arrancar, el sistema calcula los 3 períodos 
 | Comando | Qué hace |
 | --- | --- |
 | `npm start` | Compila la web (React) y arranca el servidor (Node) en el puerto 3000 |
-| `npm test` | Ejecuta las 15 pruebas automáticas (motor, API y sesiones) |
+| `npm test` | Ejecuta las 16 pruebas automáticas (motor, API y sesiones) |
 | `npm run exportar` | Recalcula todo desde `datos/reto/` y escribe las 5 exportaciones en `exportaciones/` |
 | `npm run configurar -- agregar <usuario> <analista\|administrador>` | Agrega un usuario |
 | `npm run dev:api` + `npm run dev:web` | Modo desarrollo (recarga en caliente; web en :5173) |
@@ -126,7 +126,7 @@ Desde la app (*Rankings*, *Calidad*, *Comparar*, *Reportes*) o con `npm run expo
 
 ## 6. Pruebas y verificación (evidencia)
 
-- **`npm test`** — 15 pruebas (`pruebas/`): cascada con casos hechos a mano (una fila extranjera y negativa cuenta
+- **`npm test`** — 16 pruebas (`pruebas/`): cascada con casos hechos a mano (una fila extranjera y negativa cuenta
   solo en E2; `l` minúscula no es `L`; el duplicado se decide por orden de archivo), regla SB21, desempate,
   denominador único, ponderaciones ≈ 100, reconciliaciones, archivos inválidos, perfiles y permisos, carga de un
   período nuevo y comparación automática, columnas exactas de las exportaciones.
