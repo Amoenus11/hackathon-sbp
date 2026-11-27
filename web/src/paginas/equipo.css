@@ -397,3 +397,7 @@
 
 .eq-avatar { overflow: hidden; }
 .eq-foto { width: 100%; height: 100%; object-fit: cover; object-position: center 25%; border-radius: 50%; display: block; }
+
+/* Encuadre de cada foto */
+.eq-foto-n { object-position: 50% 44%; transform: scale(1.9); transform-origin: 52% 44%; }
+.eq-foto-g { transform: scale(1.32); transform-origin: 54% 48%; }

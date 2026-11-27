@@ -144,7 +144,7 @@ export default function Equipo() {
         <div className="eq-personas">
           {PERSONAS.map((p) => (
             <article key={p.nombre} className="eq-persona">
-              <div className="eq-avatar" aria-hidden="true">{p.foto ? <img src={p.foto} alt="" className="eq-foto" /> : p.iniciales}</div>
+              <div className="eq-avatar" aria-hidden="true">{p.foto ? <img src={p.foto} alt="" className={`eq-foto eq-foto-${p.iniciales.toLowerCase()}`} /> : p.iniciales}</div>
               <h3 className="eq-persona-nombre">{p.nombre}</h3>
               <p className="eq-persona-rol">{p.rol}</p>
               <p className="eq-persona-texto">{p.texto}</p>
