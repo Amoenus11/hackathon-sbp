@@ -384,3 +384,16 @@
 .pt-rubrica li { display: flex; gap: 1rem; align-items: center; background: #fff; border-radius: 16px; padding: .7rem 1rem; box-shadow: 0 6px 22px #0f172a0d; font-size: 1.02rem; text-align: left; }
 .pt-rub-pts { flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; background: linear-gradient(135deg, #0e7c86, #5b4bdb); }
 @media (max-width: 900px) { .pt-tec { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* Guion: quién presenta, preguntas y arquitectura */
+.pt-quien { color: #0e7c86; font-weight: 600; }
+.pt-preguntas { margin-left: auto; margin-right: auto; text-align: left; }
+.pt-flujo { display: flex; flex-direction: column; align-items: center; gap: .8rem; margin-top: 1.4rem; width: min(1150px, 92vw); }
+.pt-capa { font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; color: #64748b; }
+.pt-pasos { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .6rem; width: 100%; }
+.pt-paso { position: relative; background: #fff; border-radius: 16px; padding: .9rem .7rem; box-shadow: 0 6px 22px #0f172a0d; display: flex; flex-direction: column; gap: .3rem; text-align: center; animation: pt-entra .7s cubic-bezier(.2,.8,.2,1) both; }
+.pt-paso b { font-size: 1rem; background: linear-gradient(90deg, #0e7c86, #5b4bdb); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.pt-paso span { font-size: .82rem; color: #64748b; line-height: 1.3; }
+.pt-paso:not(:last-child)::after { content: '→'; position: absolute; right: -.55rem; top: 50%; transform: translateY(-50%); color: #5b4bdb; font-weight: 700; }
+@keyframes pt-entra { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) { .pt-pasos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pt-paso::after { display: none; } }

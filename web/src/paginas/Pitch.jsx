@@ -46,12 +46,15 @@ function useCifras() {
     return () => { vigente = false; };
   }, [ultimo, meta]);
   const [puente, setPuente] = useState(null);
+  const [calidad, setCalidad] = useState(null);
   useEffect(() => {
     if (!ultimo) return;
-    api.calidad(ultimo).then((c) => setPuente(c.reconciliaciones?.find((r) => r.id === 'R4')?.puente || null)).catch(() => {});
+    api.calidad(ultimo).then((c) => { setCalidad(c); setPuente(c.reconciliaciones?.find((r) => r.id === 'R4')?.puente || null); }).catch(() => {});
   }, [ultimo]);
   const periodos = meta?.periodos || [];
   return {
+    calidad,
+    nombresPeriodos: periodos.map((p) => p.etiqueta?.split(' ')[0]).filter(Boolean),
     puente,
     pregunta,
     panel,
@@ -165,7 +168,7 @@ function Solucion() {
       <h2 className="pt-frase">
         Un ranking dice <span className="pt-resaltado">quién</span> va primero.<br />Syntropy dice <span className="pt-resaltado">por qué</span>.
       </h2>
-      <p className="pt-pie-cifra">Calcula al centavo, explica cada cambio y deja rastro de cada decisión.</p>
+      <p className="pt-pie-cifra">Una plataforma interactiva que transforma datos bancarios en <b>rankings, análisis y comparaciones</b>: automatizada, transparente y accesible desde un solo lugar.</p>
     </div>
   );
 }
@@ -187,6 +190,148 @@ function TresPersonas() {
             <svg viewBox="0 0 24 24" className="pt-icono-linea" aria-hidden="true">{p.icono}</svg>
             <span className="pt-tarjeta-titulo">{p.quien}</span>
             <span className="pt-tarjeta-texto">«{p.pregunta}»</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ================= Guion del pitch (Guillermo → Nathalia → Aníbal) =================
+
+// Guillermo · apertura: la pregunta de fondo
+function Apertura() {
+  return (
+    <div className="pt-contenido pt-centro">
+      <p className="pt-antetitulo">La pregunta de fondo</p>
+      <h2 className="pt-titular">«¿De qué sirve tener miles de datos financieros disponibles, si convertirlos en información útil sigue siendo lento y complicado?»</h2>
+      <p className="pt-pie-cifra">El problema no es la falta de información: es transformarla en conocimiento <b>accesible, comprensible y útil</b> para quien decide con esa cifra.</p>
+    </div>
+  );
+}
+
+// Guillermo · el perfil público: tres preguntas que deberían responderse en segundos
+function PerfilPublico() {
+  const preguntas = ['¿Cuál banco ocupa la primera posición en este ranking?', '¿Cómo cambió su posición respecto al mes anterior?', '¿Cómo se compara con las demás entidades?'];
+  return (
+    <div className="pt-contenido pt-centro">
+      <p className="pt-antetitulo">El usuario más básico: el público</p>
+      <h2 className="pt-titular">Hoy la respuesta está en Excel y PDF.</h2>
+      <ol className="pt-rubrica pt-preguntas">
+        {preguntas.map((q, i) => <li key={q}><span className="pt-rub-pts">{i + 1}</span><span>{q}</span></li>)}
+      </ol>
+      <p className="pt-pie-cifra">Deberían responderse en segundos. <b>El acceso a la información no debería depender de qué tan bien alguien maneje Excel.</b></p>
+    </div>
+  );
+}
+
+// Guillermo · arquitectura: el recorrido del motor
+function Arquitectura() {
+  const pasos = [
+    ['Archivos CSV', 'un mes nuevo, sin tocar el código'],
+    ['Validación', 'columnas, fechas y ceros a la izquierda'],
+    ['Reglas E1–E4', 'el universo local válido'],
+    ['Catálogos', 'CINU y SB21 clasifican'],
+    ['Agrupación', 'saldo por banco y actividad'],
+    ['Ponderación', 'sobre la cartera completa'],
+    ['Rankings', 'del 1 al 12, con trazabilidad'],
+  ];
+  return (
+    <div className="pt-contenido pt-centro">
+      <p className="pt-antetitulo">Detrás de la interfaz</p>
+      <h2 className="pt-titular">No es una interfaz bonita sobre los mismos archivos.</h2>
+      <div className="pt-flujo">
+        <span className="pt-capa">React · la pantalla</span>
+        <div className="pt-pasos">
+          {pasos.map(([t, d], i) => (
+            <div key={t} className="pt-paso" style={{ animationDelay: `${i * 120}ms` }}>
+              <b>{t}</b><span>{d}</span>
+            </div>
+          ))}
+        </div>
+        <span className="pt-capa">Node.js · el motor de cálculo</span>
+      </div>
+      <p className="pt-pie-cifra">Llega un período nuevo y el sistema <b>repite todo el proceso solo</b>.</p>
+    </div>
+  );
+}
+
+// Nathalia · del registro al ranking (cifras EN VIVO del último mes)
+function DelRegistroAlRanking({ cifras }) {
+  const c = cifras.calidad;
+  const reglas = [
+    ['E1', 'Duplicados dentro del período'],
+    ['E2', 'Destino extranjero'],
+    ['E3', 'Saldo cero o negativo'],
+    ['E4', 'Actividad fuera del catálogo'],
+  ];
+  const meses = cifras.nombresPeriodos?.length ? cifras.nombresPeriodos.join(', ') : 'los tres períodos';
+  return (
+    <div className="pt-contenido">
+      <p className="pt-antetitulo">Cómo convertimos miles de registros en resultados confiables</p>
+      <h2 className="pt-titular">{c ? `${entero(c.filas_leidas)} filas → ${entero(c.universo)} préstamos válidos` : 'De miles de filas al universo válido'}</h2>
+      <div className="pt-tarjetas pt-tec">
+        {reglas.map(([id, t]) => (
+          <div key={id} className="pt-tarjeta">
+            <strong className="pt-tarjeta-valor">{c ? entero(c.cascada[id]) : id}</strong>
+            <span className="pt-tarjeta-titulo">{id} · {t}</span>
+            <span className="pt-tarjeta-texto">excluidas, en cascada: cada fila cuenta una sola vez</span>
+          </div>
+        ))}
+      </div>
+      <p className="pt-pie-cifra">
+        Meses: {meses}. Clasificamos con <b>CINU</b> y <b>SB21</b>{c ? ` (${entero(c.reclasificadas_sb21)} tarjetas reclasificadas en Consumo)` : ''},
+        sumamos por banco y actividad, y la <b>ponderación</b> se calcula sobre la cartera local válida <b>completa</b> del banco. Los 12 bancos en cada ranking.
+      </p>
+    </div>
+  );
+}
+
+// Aníbal · automatización (las 6 de la lámina 8)
+function Automatizacion() {
+  const autos = [
+    ['Cargar un período', 'CSV o Excel; recalcula todo en menos de 2 s'],
+    ['Comparar períodos', 'quién sube, quién baja y quién se mantiene'],
+    ['Movimientos', 'con una regla configurable de lo significativo'],
+    ['Explicación automática', 'el porqué: nuevos, vencidos y pagos'],
+    ['Alertas', 'variaciones fuera de lo normal, por reglas'],
+    ['Reporte', 'listo para descargar e imprimir'],
+  ];
+  return (
+    <div className="pt-contenido">
+      <p className="pt-antetitulo">¿Qué pasa cuando llega información nueva?</p>
+      <h2 className="pt-titular">Nada se repite a mano.</h2>
+      <div className="pt-tarjetas pt-tres">
+        {autos.map(([t, d]) => (
+          <div key={t} className="pt-tarjeta">
+            <span className="pt-check" aria-hidden="true">✓</span>
+            <span className="pt-tarjeta-titulo">{t}</span>
+            <span className="pt-tarjeta-texto">{d}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Aníbal · el factor diferenciador
+function Diferenciador() {
+  const tres = [
+    ['Explica el porqué', 'No solo quién va primero: cuánto prestó, cuánto le venció y cuánto le pagaron. Solo hechos.'],
+    ['Se prueba al centavo', `Dos implementaciones independientes, ${HECHOS.diferencias} diferencias, y cada préstamo que sale tiene su vencimiento.`],
+    ['Lista para usarse', 'Portada para el ciudadano, nota interna del analista, semáforo con firma, carta al banco y una versión producto que empieza vacía.'],
+  ];
+  return (
+    <div className="pt-contenido pt-centro">
+      <p className="pt-antetitulo">Nuestro factor diferenciador</p>
+      <h2 className="pt-frase">
+        Un ranking dice <span className="pt-resaltado">quién</span>.<br />Syntropy dice <span className="pt-resaltado">por qué</span>, y lo <span className="pt-resaltado">prueba</span>.
+      </h2>
+      <div className="pt-tarjetas pt-tres">
+        {tres.map(([t, d]) => (
+          <div key={t} className="pt-tarjeta">
+            <span className="pt-tarjeta-titulo">{t}</span>
+            <span className="pt-tarjeta-texto">{d}</span>
           </div>
         ))}
       </div>
@@ -287,6 +432,7 @@ function Rubrica() {
           <li key={c}><span className="pt-rub-pts">{pts}</span><span><b>{c}.</b> {txt}</span></li>
         ))}
       </ol>
+      <p className="pt-pie-cifra">Requisitos mínimos <b>R1–R6 ✓</b>: corre local, nada fijado a mano, solo catálogos, repositorio público con README, sin credenciales, y los tres lo explicamos.</p>
     </div>
   );
 }
@@ -300,7 +446,7 @@ function Impacto() {
   ];
   return (
     <div className="pt-contenido">
-      <p className="pt-antetitulo">Impacto para la SBP</p>
+      <p className="pt-antetitulo">Impacto y visión: más allá de tres meses</p>
       <h2 className="pt-titular pt-titular-grande">
         Del <span className="pt-resaltado">qué</span> al <span className="pt-resaltado">por qué</span>, en 2 segundos.
       </h2>
@@ -316,26 +462,33 @@ function Impacto() {
 function Cierre() {
   return (
     <div className="pt-contenido pt-centro">
-      <h2 className="pt-titular">Rankings confiables para decisiones mejor informadas.</h2>
-      <p className="pt-pie-cifra">Del caos de datos al orden de las decisiones.</p>
+      <h2 className="pt-titular">Los datos, por sí solos, son solamente números.<br />El verdadero valor está en lo que hacemos con ellos.</h2>
+      <p className="pt-pie-cifra">Somos <b>Syntropy</b>: del caos de datos al orden de las decisiones. Muchas gracias.</p>
       <p className="pt-dominio">syntropy.com.pa</p>
       <p className="pt-marca-chica">SYNTROPY</p>
     </div>
   );
 }
 
+// «quien» = quién del equipo la presenta (guion de Guillermo → Nathalia → Aníbal)
 const DIAPOSITIVAS = [
-  { titulo: 'Portada', Componente: Portada },
-  { titulo: 'El problema', Componente: Problema },
-  { titulo: 'La pregunta', Componente: Pregunta },
-  { titulo: 'La solución', Componente: Solucion },
-  { titulo: 'Tres personas, tres preguntas', Componente: TresPersonas },
-  { titulo: 'Demostración', Componente: Demo },
-  { titulo: 'Por qué confiar', Componente: Confianza },
-  { titulo: 'La tecnología, y por qué', Componente: Tecnologia },
-  { titulo: 'Lo que pide la rúbrica', Componente: Rubrica },
-  { titulo: 'Impacto', Componente: Impacto },
-  { titulo: 'Cierre', Componente: Cierre },
+  { titulo: 'Portada', Componente: Portada, quien: 'Guillermo' },
+  { titulo: 'La pregunta de fondo', Componente: Apertura, quien: 'Guillermo' },
+  { titulo: 'El problema', Componente: Problema, quien: 'Guillermo' },
+  { titulo: 'El perfil público', Componente: PerfilPublico, quien: 'Guillermo' },
+  { titulo: 'La solución', Componente: Solucion, quien: 'Guillermo' },
+  { titulo: 'Arquitectura', Componente: Arquitectura, quien: 'Guillermo' },
+  { titulo: 'La tecnología, y por qué', Componente: Tecnologia, quien: 'Guillermo' },
+  { titulo: 'Del registro al ranking', Componente: DelRegistroAlRanking, quien: 'Nathalia' },
+  { titulo: 'Por qué confiar', Componente: Confianza, quien: 'Nathalia' },
+  { titulo: 'Automatización', Componente: Automatizacion, quien: 'Aníbal' },
+  { titulo: 'Tres personas, tres preguntas', Componente: TresPersonas, quien: 'Aníbal' },
+  { titulo: 'La pregunta', Componente: Pregunta, quien: 'Aníbal' },
+  { titulo: 'Factor diferenciador', Componente: Diferenciador, quien: 'Aníbal' },
+  { titulo: 'Demostración', Componente: Demo, quien: 'Aníbal' },
+  { titulo: 'Lo que pide la rúbrica', Componente: Rubrica, quien: 'Aníbal' },
+  { titulo: 'Impacto', Componente: Impacto, quien: 'Aníbal' },
+  { titulo: 'Cierre', Componente: Cierre, quien: 'Aníbal' },
 ];
 
 // ------------------------------------------------------------------ presentador
@@ -382,7 +535,7 @@ export default function Pitch() {
     return () => window.removeEventListener('keydown', alTeclear);
   }, [siguiente, anterior, pantallaCompleta, ir, total]);
 
-  const { Componente, titulo } = DIAPOSITIVAS[indice];
+  const { Componente, titulo, quien } = DIAPOSITIVAS[indice];
   return (
     <div
       ref={raiz}
@@ -420,7 +573,7 @@ export default function Pitch() {
           />
         ))}
       </nav>
-      <span className="pt-contador" aria-hidden="true">{indice + 1} / {total}</span>
+      <span className="pt-contador" aria-hidden="true">{quien && <span className="pt-quien">Presenta: {quien} · </span>}{indice + 1} / {total}</span>
       <span className="pt-ayuda" aria-hidden="true">← → para avanzar · F pantalla completa</span>
     </div>
   );
