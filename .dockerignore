@@ -1,0 +1,10 @@
+.git
+node_modules
+dist
+datos-locales
+exportaciones
+nube
+equipo
+verificacion
+docs/*.pptx
+.env

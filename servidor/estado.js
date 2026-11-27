@@ -6,6 +6,7 @@ import { join, basename } from 'node:path';
 import { readdirSync } from 'node:fs';
 import { leerCatalogos } from '../motor/cargar.js';
 import { procesarArchivo, compararPeriodos, PARAMETROS_INICIALES, ErrorDatos } from '../motor/motor.js';
+import { generar } from '../motor/exportar.js';
 
 const MAX_REGISTRO = 1000;
 
@@ -32,6 +33,17 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
   }
 
   const periodos = new Map();
+  let carpetaResultados = null;
+  function publicar() {
+    if (!carpetaResultados) return;
+    mkdirSync(carpetaResultados, { recursive: true });
+    const l = [...periodos.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const comparaciones = l.slice(1).map((p, k) => compararPeriodos(l[k], p, guardado.parametros));
+    for (const [tipo, fn] of Object.entries(generar)) {
+      writeFileSync(join(carpetaResultados, `${tipo}.csv.tmp`), fn(l, comparaciones));
+      renameSync(join(carpetaResultados, `${tipo}.csv.tmp`), join(carpetaResultados, `${tipo}.csv`));
+    }
+  }
   function recalcular() {
     periodos.clear();
     for (const a of guardado.archivos) {
@@ -40,6 +52,7 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
         if (!guardado.quitados.includes(p.fecha)) periodos.set(p.fecha, p);
       }
     }
+    publicar();
   }
   function guardar() {
     const tmp = `${rutaEstado}.tmp`;
@@ -57,6 +70,7 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
   return {
     catalogos,
     lista,
+    publicarEn(carpeta) { carpetaResultados = carpeta; publicar(); },
     ultimo: () => lista().at(-1) || null,
     periodo(fecha) {
       const p = periodos.get(fecha);
@@ -76,6 +90,7 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
       if (!Number.isFinite(pct) || pct < 0 || pct > 1000) throw new ErrorDatos('«Variación de saldo» debe ser un porcentaje entre 0 y 1000.');
       guardado.parametros = { mov_min_posiciones: min, mov_cambio_lider: Boolean(nuevos.mov_cambio_lider), mov_var_saldo_pct: pct.toFixed(2) };
       guardar();
+      publicar();
       return guardado.parametros;
     },
     comparar(anterior, actual) { return compararPeriodos(anterior, actual, guardado.parametros); },

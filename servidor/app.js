@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { crearEstado } from './estado.js';
 import { crearSesiones, usuariosDesdeEntorno, PERMISOS, NOMBRE_PERFIL } from './sesion.js';
 import { preguntarIA } from './ia.js';
+import { crearCuentas } from './cuentas.js';
 import {
   ORDEN_RANKINGS, TIPO_RANKING, TITULO_RANKING, VERSION_MOTOR, ErrorDatos,
   etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje,
@@ -18,7 +19,10 @@ const AVISO = 'Datos 100 % ficticios con fines de demostración. No representan 
 
 export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpetaReto = 'datos/reto', carpetaWeb = 'dist' } = {}) {
   const estado = crearEstado({ carpetaReto, carpetaLocal, inicial: entorno.CARGA_INICIAL || 'todos' });
-  const sesiones = crearSesiones(usuariosDesdeEntorno(entorno));
+  const usuariosEnv = usuariosDesdeEntorno(entorno);
+  const cuentas = entorno.CUENTAS ? crearCuentas(carpetaLocal, entorno.CUENTAS, entorno.URL_PUBLICA || '') : null;
+  const sesiones = crearSesiones((n) => usuariosEnv.get(n) || cuentas?.lista().find((c) => c.usuario === n));
+  if (entorno.RESULTADOS_DIR) estado.publicarEn(entorno.RESULTADOS_DIR);
   const seguro = entorno.COOKIE_SEGURA === '1';
   const app = express();
   app.disable('x-powered-by');
@@ -88,18 +92,28 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   app.post('/api/sesion', (req, res) => {
     const r = sesiones.entrar(req.body?.usuario, req.body?.clave);
     if (r.error) {
-      estado.registrar(String(req.body?.usuario || '').slice(0, 40), 'publico', 'inicio_sesion_fallido', 'Usuario o contraseña incorrectos');
+      estado.registrar(String(req.body?.usuario || '').slice(0, 40), 'publico', 'sesion_fallida', 'Usuario o contraseña incorrectos');
       return res.status(401).json({ error: r.error });
     }
     res.cookie(COOKIE, r.token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000 });
-    estado.registrar(r.usuario, r.perfil, 'inicio_sesion', `Perfil ${NOMBRE_PERFIL[r.perfil]}`);
+    estado.registrar(r.usuario, r.perfil, 'iniciar_sesion', `Perfil ${NOMBRE_PERFIL[r.perfil]}`);
     res.json({ perfil: r.perfil, usuario: r.usuario });
   });
   app.delete('/api/sesion', (req, res) => {
-    if (req.sesion) registrar(req, 'cierre_sesion', '');
+    if (req.sesion) registrar(req, 'cerrar_sesion', '');
     sesiones.salir(req.token);
     res.clearCookie(COOKIE, { path: '/' });
     res.json({ perfil: 'publico', usuario: null });
+  });
+
+  // --- Contraseña de un solo uso (versión en internet)
+  app.use('/estatico', express.static(resolve('servidor/estatico'), { maxAge: '1h' }));
+  app.get('/revelar', (req, res) => res.set('Cache-Control', 'no-store').sendFile(resolve('servidor/estatico/revelar.html')));
+  app.post('/api/revelar', (req, res) => {
+    const r = cuentas?.revelar(String(req.body?.token || '').slice(0, 100));
+    if (!r) return res.status(400).json({ error: 'El enlace no es válido o ya se usó.' });
+    estado.registrar(r.usuario, r.perfil, 'revelar_contrasena', 'Enlace de un solo uso');
+    res.json({ usuario: r.usuario, clave: r.clave });
   });
 
   // --- Metadatos
@@ -294,7 +308,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   app.get('/api/parametros', (req, res) => res.json(estado.parametros));
   app.put('/api/parametros', permiso('parametros'), (req, res) => {
     const nuevos = estado.fijarParametros(req.body || {});
-    registrar(req, 'cambiar_parametros', JSON.stringify(nuevos));
+    registrar(req, 'parametros', JSON.stringify(nuevos));
     res.json(nuevos);
   });
   app.get('/api/registro', permiso('registro'), (req, res) => res.json(estado.registro()));
@@ -313,7 +327,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
         rankings: Object.fromEntries(ORDEN_RANKINGS.map((m) => [m, filasRanking(p, m).map((f) => ({ pos: f.posicion, banco: f.banco, saldo: f.saldo_actividad, ponderacion_pct: f.ponderacion_pct, cuota_pct: f.participacion_pct, cambio: f.cambio }))])),
         movimientos_destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 15).map((e) => e.texto) : [],
       };
-      const r = await preguntarIA(pregunta, contexto, { comando: entorno.CLAUDE_COMANDO || 'claude' });
+      const r = await preguntarIA(pregunta, contexto, { comando: entorno.CLAUDE_COMANDO || 'claude', asistenteUrl: entorno.ASISTENTE_URL });
       registrar(req, 'consulta_ia', pregunta.slice(0, 120));
       res.json(r);
     } catch (e) { next(e); }

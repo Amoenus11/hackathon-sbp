@@ -37,12 +37,13 @@ const DURACION_MS = 8 * 60 * 60 * 1000;
 const MAX_FALLOS = 5;
 
 export function crearSesiones(usuarios) {
+  const buscar = typeof usuarios === 'function' ? usuarios : (n) => usuarios.get(n);
   const sesiones = new Map();
   const fallos = new Map(); // usuario → { n, hasta }
   return {
     entrar(usuario, clave) {
       const nombre = String(usuario || '').toLowerCase();
-      const u = usuarios.get(nombre);
+      const u = buscar(nombre);
       const f = fallos.get(nombre) || { n: 0, hasta: 0 };
       if (f.hasta > Date.now()) return { error: 'Demasiados intentos fallidos. Espera 5 minutos.' };
       if (!u || !claveCorrecta(String(clave || ''), u.huella)) {

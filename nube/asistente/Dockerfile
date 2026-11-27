@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt \
 
 RUN useradd --uid 1000 --user-group --no-create-home --home-dir /tmp/casa --shell /bin/bash analista
 
-COPY servidor.py instrucciones.md esquema_respuesta.json /app/
+COPY servidor.py explicador.py instrucciones.md instrucciones_observatorio.md esquema_respuesta.json /app/
 
 USER 1000:1000
 EXPOSE 8100
