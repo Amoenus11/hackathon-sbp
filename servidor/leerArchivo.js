@@ -1,5 +1,6 @@
 // Lee un archivo subido (CSV o Excel .xlsx), lo normaliza y devuelve el CSV limpio + la bitácora de conversión.
 import ExcelJS from 'exceljs';
+import { Readable } from 'node:stream';
 import { leerCsv } from '../motor/csv.js';
 import { normalizar } from '../motor/normalizar.js';
 import { ErrorDatos } from '../motor/motor.js';
@@ -19,21 +20,27 @@ function valorCelda(v) {
 }
 
 async function leerExcel(contenido) {
-  const libro = new ExcelJS.Workbook();
+  // Lectura por partes (streaming): un Excel de 30,000 filas no llena la memoria del servidor
+  const lector = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from(contenido), {
+    sharedStrings: 'cache', hyperlinks: 'ignore', styles: 'cache', worksheets: 'emit',
+  });
+  let hoja = null;
+  const filas = [];
   try {
-    await libro.xlsx.load(contenido);
+    for await (const hojaLeida of lector) {
+      const filasHoja = [];
+      for await (const fila of hojaLeida) {
+        const valores = Array.isArray(fila.values) ? fila.values.slice(1).map(valorCelda) : [];
+        filasHoja.push(valores);
+      }
+      if (filasHoja.length > 1) { hoja = hojaLeida.name || 'Hoja1'; filas.push(...filasHoja); break; }
+    }
   } catch {
     throw new ErrorDatos('No pude abrir el Excel. Guárdalo como «Libro de Excel (.xlsx)» o expórtalo a CSV (UTF-8).');
   }
-  const hoja = libro.worksheets.find((h) => h.actualRowCount > 1) || libro.worksheets[0];
-  if (!hoja) throw new ErrorDatos('El Excel no tiene hojas con datos.');
-  const filas = [];
-  hoja.eachRow({ includeEmpty: false }, (fila) => {
-    const valores = [];
-    for (let c = 1; c <= hoja.actualColumnCount; c++) valores.push(valorCelda(fila.getCell(c).value));
-    filas.push(valores);
-  });
-  return { hoja: hoja.name, encabezado: (filas[0] || []).map((h) => String(h ?? '')), filas: filas.slice(1) };
+  if (!filas.length) throw new ErrorDatos('El Excel no tiene hojas con datos.');
+  const ancho = filas[0].length;
+  return { hoja, encabezado: filas[0].map((h) => String(h ?? '')), filas: filas.slice(1).map((f) => (f.length < ancho ? [...f, ...Array(ancho - f.length).fill('')] : f)) };
 }
 
 function leerTexto(contenido) {
