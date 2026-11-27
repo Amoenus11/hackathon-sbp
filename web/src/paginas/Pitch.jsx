@@ -155,11 +155,11 @@ function Pregunta({ cifras }) {
       <h2 className="pt-titular">
         {q ? `«¿Por qué ${q.perdio.banco} perdió el primer lugar en ${q.ranking}?»` : '«¿Por qué este banco perdió el primer lugar?»'}
       </h2>
-      <p className="pt-pie-cifra">Excel dice <b>que</b> bajó. No dice <b>por qué</b>.</p>
+      <p className="pt-pie-cifra">Excel dice <b>que</b> bajó. Syntropy pone <b>los hechos</b> sobre la mesa; la analista decide qué significan.</p>
       {q && (
         <p className="pt-respuesta">
-          Prestó <b>más</b> que {q.gano.banco} ({M(q.perdio.nuevos)} frente a {M(q.gano.nuevos)}), pero le vencieron {M(q.perdio.terminados)}.{' '}
-          <span className="pt-resaltado">No prestó menos: le vencieron más.</span>
+          Los hechos: prestó {M(q.perdio.nuevos)} ({q.gano.banco}: {M(q.gano.nuevos)}) y le vencieron {M(q.perdio.terminados)}.{' '}
+          <span className="pt-resaltado">La lectura la pone una persona.</span>
         </p>
       )}
     </div>
@@ -171,7 +171,7 @@ function Solucion() {
     <div className="pt-contenido pt-centro">
       <p className="pt-antetitulo">Syntropy</p>
       <h2 className="pt-frase">
-        Un ranking dice <span className="pt-resaltado">quién</span> va primero.<br />Syntropy dice <span className="pt-resaltado">por qué</span>.
+        Syntropy pone los <span className="pt-resaltado">hechos</span>.<br />Las personas <span className="pt-resaltado">deciden</span>.
       </h2>
       <p className="pt-pie-cifra">Una plataforma interactiva que transforma datos bancarios en <b>rankings, análisis y comparaciones</b>: automatizada, transparente y accesible desde un solo lugar.</p>
     </div>
@@ -298,7 +298,7 @@ function Automatizacion() {
     ['Cargar un período', 'CSV o Excel; recalcula todo en menos de 2 s'],
     ['Comparar períodos', 'quién sube, quién baja y quién se mantiene'],
     ['Movimientos', 'con una regla configurable de lo significativo'],
-    ['Explicación automática', 'el porqué: nuevos, vencidos y pagos'],
+    ['Hechos de cada cambio', 'nuevos, vencidos y pagos, listos para que la analista los evalúe'],
     ['Alertas', 'variaciones fuera de lo normal, por reglas'],
     ['Reporte', 'listo para descargar e imprimir'],
   ];
@@ -322,15 +322,15 @@ function Automatizacion() {
 // Aníbal · el factor diferenciador
 function Diferenciador() {
   const tres = [
-    ['Explica el porqué', 'No solo quién va primero: cuánto prestó, cuánto le venció y cuánto le pagaron. Solo hechos.'],
+    ['Hechos, no conclusiones', 'Cuánto prestó, cuánto le venció y cuánto le pagaron. La interpretación la hace la analista en «Tu lectura».'],
     ['Se prueba al centavo', `Dos implementaciones independientes, ${HECHOS.diferencias} diferencias, y cada préstamo que sale tiene su vencimiento.`],
-    ['Lista para usarse', 'Portada para el ciudadano, nota interna del analista, semáforo con firma, carta al banco y una versión producto que empieza vacía.'],
+    ['La última palabra es humana', 'Ningún mes se publica sin la firma de una persona; la IA ayuda a encontrar las cifras, pero no calcula ni opina.'],
   ];
   return (
     <div className="pt-contenido pt-centro">
       <p className="pt-antetitulo">Nuestro factor diferenciador</p>
       <h2 className="pt-frase">
-        Un ranking dice <span className="pt-resaltado">quién</span>.<br />Syntropy dice <span className="pt-resaltado">por qué</span>, y lo <span className="pt-resaltado">prueba</span>.
+        Potenciamos a las <span className="pt-resaltado">personas</span>.<br />No reemplazamos sus <span className="pt-resaltado">decisiones</span>.
       </h2>
       <div className="pt-tarjetas pt-tres">
         {tres.map(([t, d]) => (
@@ -370,7 +370,7 @@ function Confianza({ cifras }) {
     { valor: '4', titulo: 'reconciliaciones', texto: 'una más que las pedidas: ningún préstamo desaparece entre un mes y otro sin explicación' },
     { valor: String(HECHOS.pruebas), titulo: 'pruebas automáticas', texto: 'reglas, perfiles, carga de un mes nuevo y exportaciones; sumas en centavos enteros' },
     ...(cifras?.puente ? [{ valor: `${entero(cifras.puente.vencian)} de ${entero(cifras.puente.n_terminados)}`, titulo: 'préstamos explicados', texto: 'ningún préstamo sale sin su fecha de vencimiento: el puente entre meses cuadra al centavo' }] : []),
-    { valor: '✦', titulo: 'IA que no calcula', texto: 'explica las cifras oficiales; vive aislada y solo puede leer' },
+    { valor: '✦', titulo: 'IA que no decide', texto: 'ayuda a encontrar y leer las cifras oficiales; no calcula ni opina, vive aislada y solo puede leer' },
   ];
   return (
     <div className="pt-contenido">
@@ -398,7 +398,7 @@ function Tecnologia() {
     { que: 'Python de referencia', por: 'Una segunda implementación independiente que compara las 5 exportaciones.' },
     { que: 'node --test', por: `${HECHOS.pruebas} pruebas automáticas en cada cambio: reglas, perfiles y cargas.` },
     { que: 'Docker + Cloudflare', por: 'Publicada sin puertos abiertos; también corre local con npm start (R1).' },
-    { que: 'Claude, aislado', por: 'La IA solo lee y explica las cifras ya calculadas; nunca calcula (Sección 9).' },
+    { que: 'Claude, aislado', por: 'La IA ayuda a leer las cifras ya calculadas; nunca calcula ni decide (Sección 9).' },
     { que: 'Datos guardados en el servidor', por: 'Cuentas (contraseñas cifradas), meses cargados, firmas y registro en archivos JSON persistentes; los rankings se recalculan siempre desde los archivos del reto (R2).' },
   ];
   return (
@@ -425,7 +425,7 @@ function Rubrica() {
     ['Automatización', 15, 'Cargar un mes y recalcular solo, comparar, puente del cambio, alertas y reporte descargable.'],
     ['Usabilidad', 15, 'Portada de tres preguntas, presentación guiada, fuente y «datos ficticios» siempre visibles.'],
     ['Calidad técnica', 10, `React + Node, código ordenado, ${HECHOS.pruebas} pruebas, README y repositorio público sin claves.`],
-    ['Innovación', 10, 'Anatomía del cambio, «Tu lectura», semáforo con firma, carta al banco, IA que explica.'],
+    ['Innovación', 10, 'Anatomía del cambio, «Tu lectura» (la evaluación humana), semáforo con firma, carta al banco, IA que orienta.'],
     ['Presentación', 10, 'Este pitch con cifras en vivo y una presentación guiada dentro de la propia plataforma.'],
   ];
   return (
@@ -448,12 +448,13 @@ function Impacto() {
     'Al banco, su carta de calidad lista para enviar',
     'Al público, rankings claros y verificables',
     'A quien hace esto a mano, le devolvemos la mañana',
+    'La decisión, siempre en manos de una persona',
   ];
   return (
     <div className="pt-contenido">
       <p className="pt-antetitulo">Impacto y visión: más allá de tres meses</p>
       <h2 className="pt-titular pt-titular-grande">
-        Del <span className="pt-resaltado">qué</span> al <span className="pt-resaltado">por qué</span>, en 2 segundos.
+        Menos tiempo <span className="pt-resaltado">ordenando</span>, más tiempo <span className="pt-resaltado">pensando</span>.
       </h2>
       <ul className="pt-puntos">
         {puntos.map((p) => (

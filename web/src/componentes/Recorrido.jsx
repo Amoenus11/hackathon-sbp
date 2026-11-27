@@ -28,7 +28,7 @@ export const PASOS_TODOS = [
     focos: [
       { sel: '.kpis', texto: 'Las cifras del mes: la cartera local válida, los préstamos que cuentan y cuántas filas quedaron fuera por las reglas E1–E4.' },
       { sel: 'section[aria-labelledby="lideres-titulo"]', texto: 'Quién lidera cada una de las 6 actividades, con su cuota de mercado. Si cambió el líder, se marca.' },
-      { sel: 'section[aria-labelledby="cambios-titulo"]', texto: 'Lo que cambió este mes, explicado automáticamente en lenguaje claro: quién sube, a quién supera y por qué.' },
+      { sel: 'section[aria-labelledby="cambios-titulo"]', texto: 'Lo que cambió este mes, en lenguaje claro: quién sube, a quién supera y los hechos detrás de cada cambio.' },
     ],
   },
   {
@@ -36,7 +36,7 @@ export const PASOS_TODOS = [
     texto: '6 actividades × 12 bancos: posición, saldo y ponderación oficial.',
     focos: [
       { sel: 'section[aria-labelledby="grafico-ranking-titulo"]', texto: 'Los 12 bancos ordenados por saldo. Empate: gana el código de banco menor. Siempre están los 12.' },
-      { sel: 'section[aria-labelledby="tabla-ranking-titulo"]', texto: 'Saldo, cartera total y ponderación oficial. Toca un banco: su desglose (Tarjeta por la regla SB21) y la ANATOMÍA DEL CAMBIO: cuánto prestó, cuánto le venció y cuánto amortizó. Un ranking dice quién va primero; Syntropy dice por qué.' },
+      { sel: 'section[aria-labelledby="tabla-ranking-titulo"]', texto: 'Saldo, cartera total y ponderación oficial. Toca un banco: su desglose (Tarjeta por la regla SB21) y la ANATOMÍA DEL CAMBIO: cuánto prestó, cuánto le venció y cuánto amortizó. Syntropy pone los hechos; la analista los evalúa.' },
     ],
   },
   {
@@ -60,7 +60,7 @@ export const PASOS_TODOS = [
     ruta: '/comparar?puente=COMERCIO-111', titulo: 'Quién sube y quién baja', minimo: 'analista',
     texto: 'Los movimientos significativos según una regla configurable, cada uno explicado.',
     focos: [
-      { sel: 'section[aria-labelledby="explicaciones-titulo"]', texto: 'Cada movimiento, explicado con su porqué: «No prestó menos: le vencieron más». Quién sube, a quién supera y qué lo movió.' },
+      { sel: 'section[aria-labelledby="explicaciones-titulo"]', texto: 'Cada movimiento con sus hechos: cuánto prestó, cuánto le venció y cuánto le pagaron. La lectura la escribe la analista en «Tu lectura».' },
       { sel: 'section[aria-labelledby="tabla-movimientos-titulo"]', texto: 'La regla es configurable: posiciones, cambio de líder o variación de saldo. Todo queda en el registro.' },
     ],
   },
@@ -106,7 +106,7 @@ export const PASOS_TODOS = [
     ruta: '/asistente', titulo: 'Pregúntale a la IA', minimo: 'publico',
     texto: 'Responde en lenguaje natural con las cifras oficiales.',
     focos: [
-      { sel: '.tarjeta-chat', texto: 'Pregunta como hablarías con un colega. La IA explica las cifras oficiales; nunca calcula los rankings.' },
+      { sel: '.tarjeta-chat', texto: 'Pregunta como hablarías con un colega. La IA ayuda a encontrar y leer las cifras oficiales; nunca calcula ni decide.' },
     ],
   },
   {
