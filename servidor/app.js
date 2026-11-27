@@ -5,6 +5,7 @@ import multer from 'multer';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { crearEstado, vistaPublica } from './estado.js';
+import { guiaPara, REGLAS_GUIA } from './guia.js';
 import { crearSesiones, usuariosDesdeEntorno, PERMISOS, NOMBRE_PERFIL } from './sesion.js';
 import { preguntarIA } from './ia.js';
 import { crearCuentas } from './cuentas.js';
@@ -590,7 +591,11 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
           }));
         }
       }
-      const r = await preguntarIA(pregunta, contexto, { comando: entorno.CLAUDE_COMANDO || 'claude', asistenteUrl: entorno.ASISTENTE_URL });
+      // Quién pregunta y qué pantallas puede usar: el asistente responde según su perfil y guía con la plataforma
+      contexto.perfil = req.perfil;
+      contexto.guia_app = guiaPara(req.perfil);
+      contexto.reglas_de_respuesta = REGLAS_GUIA;
+      const r = await preguntarIA(pregunta, contexto, { comando: entorno.CLAUDE_COMANDO || 'claude', asistenteUrl: entorno.ASISTENTE_URL, perfil: req.perfil });
       registrar(req, 'consulta_ia', pregunta.slice(0, 120));
       res.json(r);
     } catch (e) { next(e); }

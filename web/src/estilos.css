@@ -809,3 +809,5 @@ section[aria-labelledby="usuarios-roles-titulo"] select:has(option[value="analis
 .hoja-reporte .tabla td.numerica { white-space: nowrap; }
 @media (max-width: 760px) { .hoja-reporte { padding: 1.2rem 1rem; } .hoja-reporte .tabla { font-size: .72rem; } }
 @media print { .hoja-seccion { overflow: visible; } }
+
+.enlace-ia { color: var(--acento); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }

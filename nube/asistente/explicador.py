@@ -46,6 +46,7 @@ app = FastAPI(title="Asistente de solo lectura", docs_url=None, redoc_url=None, 
 class Peticion(BaseModel):
     pregunta: str = Field(..., min_length=1, max_length=2000)
     contexto: str = Field("", max_length=80000)
+    perfil: str = Field("publico", max_length=20)
 
 
 def entorno(casa: Path) -> dict:
@@ -88,10 +89,14 @@ async def explicar(p: Peticion):
             CLAUDE, "-p",
             "--model", MODELO, "--effort", ESFUERZO,
             "--output-format", "json", "--no-session-persistence", "--strict-mcp-config",
-            "--tools", HERRAMIENTAS, "--allowedTools", HERRAMIENTAS,
-            "--add-dir", RESULTADOS, "--add-dir", DATOS_RETO,
             "--append-system-prompt", INSTRUCCIONES,
         ]
+        # Solo analistas y administradores pueden hacer que lea archivos (los resultados incluyen las filas
+        # excluidas y los meses en borrador). Al Público le responde únicamente con el RESUMEN, sin herramientas.
+        if p.perfil in ("analista", "administrador"):
+            orden += ["--tools", HERRAMIENTAS, "--allowedTools", HERRAMIENTAS, "--add-dir", RESULTADOS, "--add-dir", DATOS_RETO]
+        else:
+            orden += ["--tools", ""]
         prompt = f"RESUMEN DEL PERÍODO CONSULTADO (ya calculado por el motor):\n{p.contexto}\n\nPREGUNTA DEL USUARIO:\n{p.pregunta}"
         proceso = await asyncio.create_subprocess_exec(
             *orden, stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,

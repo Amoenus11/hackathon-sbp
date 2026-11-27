@@ -393,7 +393,7 @@ function Confianza({ cifras }) {
 function Tecnologia() {
   const piezas = [
     { que: 'React + Vite', por: 'La pantalla. Lo pide la lámina 7; carga rápido y cada perfil ve solo lo suyo.' },
-    { que: 'Node.js + Express', por: 'La API. Un solo lenguaje, JavaScript, de punta a punta: los tres lo explicamos.' },
+    { que: 'Node.js + Express', por: 'La API. Un solo lenguaje, JavaScript, de punta a punta: más simple de mantener y de auditar.' },
     { que: 'Centavos enteros (BigInt)', por: 'El cálculo. Nunca decimales flotantes: las sumas cuadran al centavo.' },
     { que: 'Python de referencia', por: 'Una segunda implementación independiente que compara las 5 exportaciones.' },
     { que: 'node --test', por: `${HECHOS.pruebas} pruebas automáticas en cada cambio: reglas, perfiles y cargas.` },
@@ -426,7 +426,7 @@ function Rubrica() {
     ['Usabilidad', 15, 'Portada de tres preguntas, presentación guiada, fuente y «datos ficticios» siempre visibles.'],
     ['Calidad técnica', 10, `React + Node, código ordenado, ${HECHOS.pruebas} pruebas, README y repositorio público sin claves.`],
     ['Innovación', 10, 'Anatomía del cambio, «Tu lectura», semáforo con firma, carta al banco, IA que explica.'],
-    ['Presentación', 10, 'Este pitch con cifras en vivo, y los tres integrantes explicamos el código (R6).'],
+    ['Presentación', 10, 'Este pitch con cifras en vivo y una presentación guiada dentro de la propia plataforma.'],
   ];
   return (
     <div className="pt-contenido">
@@ -437,7 +437,7 @@ function Rubrica() {
           <li key={c}><span className="pt-rub-pts">{pts}</span><span><b>{c}.</b> {txt}</span></li>
         ))}
       </ol>
-      <p className="pt-pie-cifra">Requisitos mínimos <b>R1–R6 ✓</b>: corre local, nada fijado a mano, solo catálogos, repositorio público con README, sin credenciales, y los tres lo explicamos.</p>
+      <p className="pt-pie-cifra">Requisitos mínimos <b>R1–R6 ✓</b>: corre local, nada fijado a mano, solo catálogos, repositorio público con README, sin credenciales y código explicable.</p>
     </div>
   );
 }
