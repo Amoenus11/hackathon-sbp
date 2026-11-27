@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · Syntropy</title>
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="stylesheet" href="/static/css/admin.css">
+<script type="module" src="/static/js/admin.js"></script>
+</head>
+<body>
+<header class="barra">
+  <div class="marca"><b>SYNTROPY</b></div><span class="barra-sub">Administración</span>
+  <span class="espacio"></span>
+  <nav class="enlaces"><a href="/">← App</a><a href="/equipo">Equipo</a></nav>
+  <button class="boton secundario chico" id="salir" type="button">Salir</button>
+</header>
+<main class="admin">
+  <section class="tarjeta">
+    <h2>Usuarios</h2>
+    <p class="nota">«Nuevo enlace» anula la contraseña actual y cierra sus sesiones. Admin y SBP reciben una contraseña aleatoria que el enlace muestra una vez; el equipo crea la suya.</p>
+    <div class="tabla-envoltura"><table id="usuarios"></table></div>
+    <div id="enlace" class="exito oculto"></div>
+  </section>
+  <section class="tarjeta">
+    <h2>Auditoría <span class="nota">(últimas 300 acciones)</span></h2>
+    <div class="tabla-envoltura alto"><table id="auditoria"></table></div>
+  </section>
+</main>
+</body>
+</html>

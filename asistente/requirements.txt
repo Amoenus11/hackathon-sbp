@@ -1,0 +1,13 @@
+# Analista aislado (contenedor hackathon-asistente). Versiones fijas, todas de PyPI.
+# claude-agent-sdk trae dentro el binario de Claude Code 2.1.332 (claude_agent_sdk/_bundled/claude);
+# no usamos su API de Python: el servidor lanza ese binario directamente.
+claude-agent-sdk==0.2.189
+fastapi==0.165.0
+uvicorn==0.54.0
+pandas==3.1.1
+numpy==2.5.5
+pyarrow==26.0.1
+duckdb==2.0.1
+scikit-learn==1.9.1
+statsmodels==0.15.0
+openpyxl==3.1.5

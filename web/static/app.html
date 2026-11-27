@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Syntropy · Analista IA</title>
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/app.css">
+<script src="/static/vendor/echarts-6.1.0.min.js" defer></script>
+<script type="module" src="/static/js/app.js"></script>
+</head>
+<body>
+<header class="barra">
+  <div class="marca"><b>SYNTROPY</b></div>
+  <span class="barra-sub">Analista IA · Hackatón SBP–FISC</span>
+  <span class="espacio"></span>
+  <nav class="enlaces">
+    <a href="/equipo" id="ir-equipo" class="oculto">Equipo</a>
+    <a href="/admin" id="ir-admin" class="oculto">Admin</a>
+    <a href="/informe" target="_blank" rel="noopener">Informe</a>
+  </nav>
+  <span class="chip" id="yo">…</span>
+  <button class="boton secundario chico" id="salir" type="button">Salir</button>
+</header>
+<nav class="pestanas" id="pestanas">
+  <button type="button" data-ir="col-panel" class="activa">Panel</button>
+  <button type="button" data-ir="col-chat">Preguntar</button>
+  <button type="button" data-ir="col-datos">Datos</button>
+</nav>
+<main class="tablero">
+  <section class="col datos" id="col-datos">
+    <h2>Datos</h2>
+    <label class="soltar" id="soltar">
+      <input type="file" id="archivo" accept=".csv,.txt,.tsv,.xlsx,.xlsm,.xls,.json,.parquet" class="oculto">
+      <strong>Sube un archivo</strong>
+      <span class="nota">CSV, Excel, JSON o Parquet · hasta 60 MB</span>
+    </label>
+    <input class="entrada" id="descripcion" placeholder="¿De qué trata? (opcional, ayuda a la IA)">
+    <p class="error" id="error-datos"></p>
+    <div id="conjuntos" class="conjuntos"></div>
+  </section>
+
+  <section class="col panel" id="col-panel">
+    <div class="panel-cab">
+      <div>
+        <h2>Panel ejecutivo</h2>
+        <p class="nota" id="panel-meta">Aún no hay panel. Sube datos y pídele a la IA que lo arme.</p>
+      </div>
+      <div class="fila">
+        <button class="boton degradado" id="generar" type="button">Generar panel con IA</button>
+        <a class="boton secundario" href="/informe" target="_blank" rel="noopener">Informe ejecutivo</a>
+      </div>
+    </div>
+    <div id="trabajo" class="trabajo oculto">
+      <div class="trabajo-cab"><span class="girando"></span><strong id="trabajo-titulo">El analista está trabajando…</strong><span class="nota num" id="trabajo-reloj"></span></div>
+      <ol id="trabajo-pasos" class="pasos"></ol>
+    </div>
+    <div id="panel"></div>
+    <div id="fijados-zona" class="oculto">
+      <h2>Fijado por el equipo</h2>
+      <div id="fijados" class="graficos"></div>
+    </div>
+  </section>
+
+  <section class="col chat" id="col-chat">
+    <h2>Pregúntale a tus datos</h2>
+    <p class="nota">Un agente (Claude Code, aislado) analiza con Python y SQL y te muestra la evidencia de cada número.</p>
+    <div id="conversacion" class="conversacion"></div>
+    <div class="sugerencias" id="sugerencias">
+      <button type="button" class="sugerencia">¿Qué está pasando en estos datos? Dame lo más importante.</button>
+      <button type="button" class="sugerencia">¿Qué riesgos o anomalías ves?</button>
+      <button type="button" class="sugerencia">¿Cuáles son las tendencias principales?</button>
+      <button type="button" class="sugerencia">¿Qué debería decidir la junta directiva con esto?</button>
+    </div>
+    <form id="preguntar" class="preguntar">
+      <textarea class="entrada" id="pregunta" rows="2" maxlength="4000" placeholder="Escribe tu pregunta…" required></textarea>
+      <button class="boton" id="enviar" type="submit">Enviar</button>
+    </form>
+  </section>
+</main>
+<dialog id="muestra" class="muestra">
+  <div class="muestra-cab"><strong id="muestra-titulo"></strong><button class="boton secundario chico" id="muestra-cerrar" type="button">Cerrar</button></div>
+  <div class="tabla-envoltura"><table id="muestra-tabla"></table></div>
+</dialog>
+</body>
+</html>

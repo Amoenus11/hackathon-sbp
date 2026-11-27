@@ -1,0 +1,96 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["titulo", "resumen", "kpis", "graficos", "hallazgos", "alertas", "recomendaciones", "consultas", "limitaciones"],
+  "properties": {
+    "titulo": {
+      "type": "string",
+      "description": "Título corto de la respuesta o del panel."
+    },
+    "resumen": {
+      "type": "string",
+      "description": "De 2 a 4 frases para un directivo: qué pasa, por qué importa y qué hacer."
+    },
+    "kpis": {
+      "type": "array",
+      "description": "Indicadores clave. Modo panel: de 4 a 6. Modo pregunta: de 0 a 4.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nombre", "valor", "detalle", "tendencia"],
+        "properties": {
+          "nombre": {"type": "string", "description": "Nombre del indicador."},
+          "valor": {"type": "string", "description": "Valor ya formateado con su unidad, por ejemplo «B/. 12.4 millones» o «3.2 %»."},
+          "detalle": {"type": "string", "description": "Contexto: periodo, comparación o fuente."},
+          "tendencia": {"type": "string", "enum": ["sube", "baja", "estable", "n/a"]}
+        }
+      }
+    },
+    "graficos": {
+      "type": "array",
+      "description": "Gráficos. Modo panel: de 4 a 6, variados. Modo pregunta: de 0 a 2.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["titulo", "explicacion", "echarts"],
+        "properties": {
+          "titulo": {"type": "string", "description": "Título del gráfico (va fuera de la opción de ECharts)."},
+          "explicacion": {"type": "string", "description": "Qué muestra y qué conclusión sacar, en 1 o 2 frases."},
+          "echarts": {
+            "type": "object",
+            "description": "Opción de ECharts en JSON puro: sin funciones, con los datos dentro (dataset.source o series.data), máximo 500 puntos, textos en español, sin colores y sin title."
+          }
+        }
+      }
+    },
+    "hallazgos": {
+      "type": "array",
+      "description": "Lo más importante que muestran los datos. Modo panel: de 3 a 6.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["texto", "evidencia"],
+        "properties": {
+          "texto": {"type": "string", "description": "El hallazgo, en lenguaje de negocio."},
+          "evidencia": {"type": "string", "description": "La cifra exacta y de dónde sale (conjunto, columnas, filtro, periodo)."}
+        }
+      }
+    },
+    "alertas": {
+      "type": "array",
+      "description": "Riesgos o valores fuera de lo normal, con un umbral razonable y explícito.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nivel", "texto"],
+        "properties": {
+          "nivel": {"type": "string", "enum": ["alta", "media", "baja"]},
+          "texto": {"type": "string", "description": "Qué pasa, la cifra y el umbral usado."}
+        }
+      }
+    },
+    "recomendaciones": {
+      "type": "array",
+      "description": "Acciones concretas para los stakeholders. Modo panel: 3.",
+      "items": {"type": "string"}
+    },
+    "consultas": {
+      "type": "array",
+      "description": "El SQL o Python exacto que produjo cada cifra importante, para poder auditarla.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["descripcion", "codigo"],
+        "properties": {
+          "descripcion": {"type": "string", "description": "Qué calcula."},
+          "codigo": {"type": "string", "description": "SQL o Python exacto, listo para volver a ejecutarse."}
+        }
+      }
+    },
+    "limitaciones": {
+      "type": "array",
+      "description": "Lo que los datos no permiten afirmar, problemas de calidad (vacíos, duplicados, valores raros) y supuestos usados.",
+      "items": {"type": "string"}
+    }
+  }
+}

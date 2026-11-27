@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="color-scheme" content="light">
+  <title>Syntropy · Equipo</title>
+  <link rel="stylesheet" href="/static/css/equipo.css">
+  <script src="/static/js/equipo.js" defer></script>
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+
+  <!-- ============ Cabecera: quiénes somos, la meta y el reloj ============ -->
+  <header class="cabecera">
+    <nav class="barra" aria-label="Navegación">
+      <p class="marca-mini">Syntropy <span>· Equipo</span></p>
+      <div class="acciones">
+        <a class="enlace-volver" href="/">← Volver a la app</a>
+        <button type="button" id="salir" class="boton-salir">Salir</button>
+      </div>
+    </nav>
+
+    <div class="heroe">
+      <div class="heroe-texto">
+        <p class="insignia">
+          <span class="insignia-meta">Meta: 1.<sup>er</sup> lugar</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <span>Hackatón SBP–FISC</span>
+          <span class="sep" aria-hidden="true">·</span>
+          <span>27 nov 2026</span>
+        </p>
+        <h1 class="titulo">SYNTROPY</h1>
+        <p class="lema">Del caos de datos al orden de las decisiones</p>
+        <p class="porque">La <strong>sintropía</strong> es lo contrario de la entropía: la fuerza que crea orden, cooperación y propósito (Fantappiè, 1942).
+          Eso hacemos: tomar datos desordenados y convertirlos en decisiones claras para los stakeholders.</p>
+        <div class="motivo" aria-hidden="true">
+          <span class="caos"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="flecha">→</span>
+          <span class="orden"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        </div>
+      </div>
+
+      <aside class="reloj" aria-label="Reloj del día">
+        <p class="reloj-etiqueta">Hora en Panamá</p>
+        <p class="reloj-hora"><time id="hora">--:--:--</time></p>
+        <p class="reloj-cuenta" id="cuenta">Calculando…</p>
+        <p class="reloj-meta">Presentación a las <strong id="hora-presentacion">15:30</strong></p>
+        <progress id="progreso-dia" max="100" value="0" aria-label="Avance del día">0 %</progress>
+        <p class="reloj-actual">Ahora: <strong id="bloque-actual">—</strong></p>
+      </aside>
+    </div>
+  </header>
+
+  <main id="contenido" class="contenido">
+
+    <!-- ============ 01 · Misión ============ -->
+    <section class="bloque b-mision" aria-labelledby="t-mision">
+      <div class="encabezado">
+        <p class="kicker">01</p>
+        <h2 id="t-mision">La misión en una frase</h2>
+      </div>
+      <p class="formula">Para <b>[stakeholder]</b> que necesita <b>[decisión]</b>, construimos <b>[solución]</b> que <b>[beneficio medible]</b>.</p>
+      <p id="mision" class="mision-texto pendiente">Se completa al conocer el reto</p>
+    </section>
+
+    <!-- ============ 02 · Roles ============ -->
+    <section class="bloque b-roles" aria-labelledby="t-roles">
+      <div class="encabezado">
+        <p class="kicker">02</p>
+        <h2 id="t-roles">Roles</h2>
+        <p class="nota">Cada uno sabe qué hace, qué decide y qué pregunta se hace.</p>
+      </div>
+      <div class="tarjetas-roles">
+        <article class="rol" data-rol="direccion">
+          <p class="rol-num" aria-hidden="true">1</p>
+          <h3 class="rol-titulo">Dirección y producto</h3>
+          <p class="persona"><span class="nombre">Por asignar</span></p>
+          <ul class="rol-lista">
+            <li>Decide el alcance</li>
+            <li>Habla con Claude</li>
+            <li>Mantiene el foco y el reloj</li>
+          </ul>
+          <p class="rol-sello">Última palabra en 2 minutos</p>
+          <p class="rol-pregunta">«¿Esto nos acerca al 1.<sup>er</sup> lugar?»</p>
+        </article>
+
+        <article class="rol" data-rol="datos">
+          <p class="rol-num" aria-hidden="true">2</p>
+          <h3 class="rol-titulo">Datos y verificación</h3>
+          <p class="persona"><span class="nombre">Por asignar</span></p>
+          <ul class="rol-lista">
+            <li>Entiende los datos del reto</li>
+            <li>Comprueba cada número (cruce en Excel)</li>
+            <li>Prepara las preguntas de negocio</li>
+            <li>Prueba la app como si fuera la SBP</li>
+          </ul>
+          <p class="rol-pregunta">«¿Este número es correcto? ¿De dónde sale?»</p>
+        </article>
+
+        <article class="rol" data-rol="pitch">
+          <p class="rol-num" aria-hidden="true">3</p>
+          <h3 class="rol-titulo">Historia y pitch</h3>
+          <p class="persona"><span class="nombre">Por asignar</span></p>
+          <ul class="rol-lista">
+            <li>Entiende al stakeholder</li>
+            <li>Arma la presentación y el guion de la demo</li>
+            <li>Ensaya y cuida el tiempo</li>
+            <li>Conversa con jueces y mentores: ¿qué valoran?</li>
+          </ul>
+          <p class="rol-pregunta">«¿El jurado lo entiende en 10 segundos?»</p>
+        </article>
+
+        <article class="rol rol-claude" data-rol="claude">
+          <p class="rol-num" aria-hidden="true">IA</p>
+          <h3 class="rol-titulo">Claude <span class="rol-donde">en el servidor</span></h3>
+          <p class="persona"><span class="nombre-fijo">Claude</span></p>
+          <ul class="rol-lista">
+            <li>Construye, publica y analiza</li>
+            <li>Lanza ayudantes en paralelo</li>
+            <li>Nunca toca datos reales sin permiso</li>
+          </ul>
+          <p class="rol-pregunta">«¿Funciona en vivo y se puede verificar?»</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ 03 · Plan del día (lo pinta equipo.js desde PLAN) ============ -->
+    <section class="bloque b-plan" aria-labelledby="t-plan">
+      <div class="encabezado">
+        <p class="kicker">03</p>
+        <h2 id="t-plan">Plan del día</h2>
+        <p class="nota">Hora de Panamá. El bloque en curso se marca solo.</p>
+      </div>
+      <ol id="plan" class="linea">
+        <li class="paso-cargando">Cargando el plan…</li>
+      </ol>
+    </section>
+
+    <!-- ============ 04 · Nuestra ventaja ============ -->
+    <section class="bloque b-ventaja" aria-labelledby="t-ventaja">
+      <div class="encabezado">
+        <p class="kicker">04</p>
+        <h2 id="t-ventaja">Nuestra ventaja</h2>
+      </div>
+      <ul class="ventajas">
+        <li class="ventaja">
+          <span class="icono" aria-hidden="true">∑</span>
+          <div>
+            <strong>Agente de verdad, no un chatbot</strong>
+            <p>Analiza con Python y SQL y muestra la evidencia de cada número.</p>
+          </div>
+        </li>
+        <li class="ventaja">
+          <span class="icono" aria-hidden="true">▣</span>
+          <div>
+            <strong>Confianza de regulador</strong>
+            <p>El agente vive aislado, sin llaves ni internet; cada pregunta queda auditada.</p>
+          </div>
+        </li>
+        <li class="ventaja">
+          <span class="icono" aria-hidden="true">↗</span>
+          <div>
+            <strong>Del dato a la decisión</strong>
+            <p>Panel automático, alertas e informe ejecutivo en un clic.</p>
+          </div>
+        </li>
+        <li class="ventaja">
+          <span class="icono" aria-hidden="true"><span class="icono-vivo"></span></span>
+          <div>
+            <strong>En vivo y en la nube</strong>
+            <p>hackathon.syntropy.com.pa, con usuarios y contraseñas seguras.</p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ============ 05 · Cómo trabajamos ============ -->
+    <section class="bloque b-reglas" aria-labelledby="t-reglas">
+      <div class="encabezado">
+        <p class="kicker">05</p>
+        <h2 id="t-reglas">Cómo trabajamos</h2>
+      </div>
+      <ol class="reglas-lista">
+        <li><span><strong>Una sola fuente de verdad:</strong> esta página y el repositorio.</span></li>
+        <li><span><strong>Demo antes que diapositivas.</strong></span></li>
+        <li><span><strong>Cada número con su fuente.</strong></span></li>
+        <li><span><strong>Decidimos en 2 minutos;</strong> si hay duda, decide Dirección.</span></li>
+        <li><span><strong>Nada nuevo después de las 14:30.</strong></span></li>
+        <li><span><strong>Hablar temprano</strong> con jueces y mentores.</span></li>
+        <li><span><strong>Agua, comida y pausas cortas:</strong> la energía también compite.</span></li>
+      </ol>
+    </section>
+
+    <!-- ============ 06 · El pitch en 5 minutos ============ -->
+    <section class="bloque b-pitch" aria-labelledby="t-pitch">
+      <div class="encabezado">
+        <p class="kicker">06</p>
+        <h2 id="t-pitch">El pitch en 5 minutos</h2>
+        <p class="nota">Más de la mitad del tiempo es demo en vivo.</p>
+      </div>
+      <div class="barra-pitch" aria-hidden="true">
+        <span class="seg s1">1</span>
+        <span class="seg s2">2</span>
+        <span class="seg s3">3 · Demo en vivo</span>
+        <span class="seg s4">4</span>
+        <span class="seg s5">5</span>
+        <span class="seg s6">6</span>
+      </div>
+      <ol class="pitch-lista">
+        <li>
+          <span class="marca m1" aria-hidden="true">1</span>
+          <time>0:00</time>
+          <span class="pitch-texto"><strong>El dolor</strong> del stakeholder, con un número que impacte</span>
+          <span class="dur">30 s</span>
+        </li>
+        <li>
+          <span class="marca m2" aria-hidden="true">2</span>
+          <time>0:30</time>
+          <span class="pitch-texto"><strong>La solución</strong> en una frase</span>
+          <span class="dur">15 s</span>
+        </li>
+        <li class="destacado">
+          <span class="marca m3" aria-hidden="true">3</span>
+          <time>0:45</time>
+          <span class="pitch-texto"><strong>Demo en vivo</strong>
+            <span class="flujo">
+              <span class="chip">Datos</span><span class="flecha-chip" aria-hidden="true">→</span>
+              <span class="chip">Panel automático</span><span class="flecha-chip" aria-hidden="true">→</span>
+              <span class="chip">Pregunta difícil</span><span class="flecha-chip" aria-hidden="true">→</span>
+              <span class="chip">Evidencia</span><span class="flecha-chip" aria-hidden="true">→</span>
+              <span class="chip">Informe ejecutivo</span>
+            </span>
+          </span>
+          <span class="dur">2:45</span>
+        </li>
+        <li>
+          <span class="marca m4" aria-hidden="true">4</span>
+          <time>3:30</time>
+          <span class="pitch-texto"><strong>Por qué confiar:</strong> aislamiento, auditoría y seguridad</span>
+          <span class="dur">45 s</span>
+        </li>
+        <li>
+          <span class="marca m5" aria-hidden="true">5</span>
+          <time>4:15</time>
+          <span class="pitch-texto"><strong>Impacto</strong> y siguiente paso</span>
+          <span class="dur">30 s</span>
+        </li>
+        <li>
+          <span class="marca m6" aria-hidden="true">6</span>
+          <time>4:45</time>
+          <span class="pitch-texto"><strong>Cierre</strong> con el lema</span>
+          <span class="dur">15 s</span>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============ 07 · Lista antes de presentar (se guarda en este teléfono) ============ -->
+    <section id="lista" class="bloque b-lista" aria-labelledby="t-lista">
+      <div class="encabezado">
+        <p class="kicker">07</p>
+        <h2 id="t-lista">Antes de presentar</h2>
+        <p class="lista-estado"><strong id="lista-cuenta">0 de 6</strong> listos<span class="listos"> · ¡Listos para ganar!</span></p>
+      </div>
+      <ul class="checklist">
+        <li><label><input type="checkbox" id="chk-sbp"><span>Usuario SBP probado</span></label></li>
+        <li><label><input type="checkbox" id="chk-datos"><span>Datos del reto cargados</span></label></li>
+        <li><label><input type="checkbox" id="chk-preguntas"><span>5 preguntas ensayadas y verificadas</span></label></li>
+        <li><label><input type="checkbox" id="chk-planb"><span>Plan B (capturas o video)</span></label></li>
+        <li><label><input type="checkbox" id="chk-laptop"><span>Laptop y cargador</span></label></li>
+        <li><label><input type="checkbox" id="chk-enlace"><span>Enlace en código QR o escrito grande</span></label></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <p><strong>Syntropy</strong> · Del caos de datos al orden de las decisiones</p>
+  </footer>
+</body>
+</html>
