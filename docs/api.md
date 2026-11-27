@@ -95,7 +95,7 @@ Siempre 12 filas (bancos sin saldo con `"0.00"`). `posicion_anterior`, `cambio`,
 `cambio = posicion_anterior − posicion_actual` (positivo = sube). `var_saldo_pct` es `null` si el saldo anterior es 0 (entonces el motivo es «Entra al sector»; si el saldo actual es 0, «Sale del sector»). `var_vs_sector_pp` = variación del banco − variación de todo el ranking, en puntos porcentuales.
 
 ## Calidad de datos
-`GET /api/calidad?fecha=` (analista o administrador) →
+`GET /api/calidad?fecha=` (todos los perfiles: son conteos agregados; las filas, en /api/excluidas, son para analistas) →
 ```json
 { "fecha": "…", "archivo": "…", "filas_leidas": 30000,
   "cascada": { "E1": 30, "E2": 1050, "E3": 60, "E4": 55 }, "universo": 28805, "saldo_universo": "…", "cuadra": true,
