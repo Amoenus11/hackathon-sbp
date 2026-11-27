@@ -12,8 +12,9 @@ export default function FranjaAviso() {
         <span className="separador" aria-hidden="true">·</span>
         <strong>Período:</strong> {fecha ? `${etiquetaPeriodo(fecha, meta)} (corte ${fechaCorte(fecha)})` : 'sin períodos cargados'}
       </span>
-      <span className="franja-aviso-largo">
-        {meta?.aviso || 'Datos 100 % ficticios con fines de demostración. No representan al sistema bancario panameño ni constituyen opinión formal de la SBP.'}
+      <span className="separador" aria-hidden="true">·</span>
+      <span className="franja-aviso-largo" title={meta?.aviso || ''}>
+        Uso informativo; no constituye opinión formal de la SBP
       </span>
     </div>
   );
