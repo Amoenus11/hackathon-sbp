@@ -5,6 +5,8 @@ import { api } from '../../api.js';
 import { useApp } from '../../contexto.jsx';
 import { EncabezadoPagina, Tarjeta } from '../../componentes/Comunes.jsx';
 import { entero, etiquetaPeriodo, fechaCorte, fechaHora } from '../../formato.js';
+import { Bitacora, ErrorCarga, HistorialCargas } from '../../producto/Bitacora.jsx';
+import { ACEPTA, esArchivoValido } from '../../producto/PrimerCorte.jsx';
 
 export default function CargarPeriodo() {
   const { meta, recargarMeta, setFecha } = useApp();
@@ -13,6 +15,7 @@ export default function CargarPeriodo() {
   const [progreso, setProgreso] = useState(null);
   const [resultado, setResultado] = useState(null);
   const [error, setError] = useState('');
+  const [errorCarga, setErrorCarga] = useState(null); // error de una carga, con su detalle (columnas, sugerencias)
   const [quitando, setQuitando] = useState(null);
   const entrada = useRef(null);
 
@@ -20,13 +23,15 @@ export default function CargarPeriodo() {
     setError('');
     setResultado(null);
     if (!f) return;
-    if (!/\.csv$/i.test(f.name)) { setError('El archivo debe ser un CSV del Átomo 03 (por ejemplo, AT03_sintetico_202609.csv).'); return; }
+    setErrorCarga(null);
+    if (!esArchivoValido(f)) { setError('El archivo debe ser el AT03 en CSV (.csv) o Excel (.xlsx), por ejemplo AT03_sintetico_202609.csv.'); return; }
     setArchivo(f);
   }
 
   async function procesar() {
     if (!archivo) return;
     setError('');
+    setErrorCarga(null);
     setProgreso(0);
     try {
       const r = await api.cargarPeriodo(archivo, setProgreso);
@@ -36,7 +41,7 @@ export default function CargarPeriodo() {
       const ultimo = r?.procesados?.[r.procesados.length - 1]?.fecha;
       if (m && ultimo) setFecha(ultimo);
     } catch (e) {
-      setError(e.message);
+      setErrorCarga(e);
     } finally {
       setProgreso(null);
     }
@@ -70,14 +75,14 @@ export default function CargarPeriodo() {
             onDrop={(e) => { e.preventDefault(); setEncima(false); elegir(e.dataTransfer.files?.[0]); }}
             onClick={() => entrada.current?.click()}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); entrada.current?.click(); } }}
-            role="button" tabIndex={0} aria-label="Elegir o soltar el archivo CSV del período"
+            role="button" tabIndex={0} aria-label="Elegir o soltar el archivo del período (CSV o Excel)"
           >
-            <input ref={entrada} type="file" accept=".csv,text/csv" className="oculto" onChange={(e) => { elegir(e.target.files?.[0]); e.target.value = ''; }} />
+            <input ref={entrada} type="file" accept={ACEPTA} className="oculto" onChange={(e) => { elegir(e.target.files?.[0]); e.target.value = ''; }} />
             <span className="zona-icono" aria-hidden="true">⇪</span>
             {archivo ? (
               <p><strong>{archivo.name}</strong><br /><span className="nota">{(archivo.size / 1024 / 1024).toFixed(1)} MB · listo para procesar</span></p>
             ) : (
-              <p><strong>Suelta aquí el CSV o haz clic para elegirlo</strong><br /><span className="nota">UTF-8, separador coma, 61 columnas del diccionario AT03</span></p>
+              <p><strong>Suelta aquí el CSV o el Excel, o haz clic para elegirlo</strong><br /><span className="nota">61 columnas del diccionario AT03 · .csv o .xlsx · lo que Excel cambie (ceros, fechas, decimales) se corrige y queda en la bitácora</span></p>
             )}
           </div>
           {procesando && (
@@ -87,6 +92,7 @@ export default function CargarPeriodo() {
             </div>
           )}
           {error && <p className="mensaje-error" role="alert">{error}</p>}
+          <ErrorCarga error={errorCarga} />
           <button type="button" className="boton boton-primario boton-ancho" onClick={procesar} disabled={!archivo || procesando}>
             {procesando ? 'Procesando…' : 'Procesar período'}
           </button>
@@ -131,6 +137,7 @@ export default function CargarPeriodo() {
               {resultado.explicaciones.map((t, i) => <li key={i} className="destacado"><span className="destacado-icono" aria-hidden="true">✦</span><span>{t}</span></li>)}
             </ul>
           )}
+          <Bitacora conversion={resultado.conversion} />
           <div className="fila-botones">
             <Link className="boton boton-primario" to="/rankings">Ver rankings</Link>
             <Link className="boton boton-secundario" to="/comparar">Ver movimientos</Link>
@@ -138,6 +145,10 @@ export default function CargarPeriodo() {
           </div>
         </Tarjeta>
       )}
+
+      <Tarjeta titulo="Historial de cargas" subtitulo="Quién cargó qué, cuándo, cuánto tardó y qué se corrigió (también las cargas fallidas)" id="historial-cargas">
+        <HistorialCargas />
+      </Tarjeta>
     </>
   );
 }

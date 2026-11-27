@@ -46,7 +46,9 @@ async function solicitar(ruta, { metodo = 'GET', cuerpo } = {}) {
   const datos = esJson ? await respuesta.json().catch(() => null) : null;
   if (!respuesta.ok) {
     if (respuesta.status === 401 && ruta !== '/sesion') window.dispatchEvent(new CustomEvent('syntropy:sesion-vencida'));
-    throw new ErrorApi(datos?.error || MENSAJES[respuesta.status] || `Error ${respuesta.status}`, respuesta.status);
+    const error = new ErrorApi(datos?.error || MENSAJES[respuesta.status] || `Error ${respuesta.status}`, respuesta.status);
+    error.datos = datos; // por ejemplo, el detalle de columnas que faltan o sobran
+    throw error;
   }
   return datos;
 }
@@ -65,7 +67,11 @@ function subirArchivo(ruta, archivo, alProgreso) {
       let datos = null;
       try { datos = JSON.parse(xhr.responseText); } catch { /* sin JSON */ }
       if (xhr.status >= 200 && xhr.status < 300) resolver(datos);
-      else rechazar(new ErrorApi(datos?.error || MENSAJES[xhr.status] || `Error ${xhr.status}`, xhr.status));
+      else {
+        const error = new ErrorApi(datos?.error || MENSAJES[xhr.status] || `Error ${xhr.status}`, xhr.status);
+        error.datos = datos; // detalle: columnas que faltan o sobran y sugerencias
+        rechazar(error);
+      }
     };
     xhr.onerror = () => rechazar(new ErrorApi('No se pudo conectar con el servidor.', 0));
     const formulario = new FormData();
@@ -104,6 +110,15 @@ export const api = {
   controles: (fecha) => solicitar(`/controles${consulta({ fecha })}`),
   firmar: (fecha, nombre) => solicitar('/publicaciones', { metodo: 'POST', cuerpo: { fecha, nombre } }),
   carta: (fecha, banco) => solicitar(`/carta${consulta({ fecha, banco })}`),
+
+  // Modo producto (demo.syntropy.com.pa): cuentas, verificación en 2 pasos e historial de cargas
+  cuentas: () => solicitar('/cuentas'),
+  crearCuenta: (usuario, nombre, clave) => solicitar('/cuentas', { metodo: 'POST', cuerpo: { usuario, nombre, clave } }),
+  dosPasos: (desafio, codigo) => solicitar('/sesion/dos-pasos', { metodo: 'POST', cuerpo: { desafio, codigo } }),
+  configurarDosPasos: () => solicitar('/dos-pasos/configurar', { metodo: 'POST' }),
+  confirmarDosPasos: (codigo) => solicitar('/dos-pasos/confirmar', { metodo: 'POST', cuerpo: { codigo } }),
+  omitirDosPasos: () => solicitar('/dos-pasos/omitir', { metodo: 'POST' }),
+  cargas: () => solicitar('/cargas'),
 
   // Asistente IA (solo explica resultados ya calculados)
   preguntarIA: (pregunta, fecha, pantalla) => solicitar('/ia', { metodo: 'POST', cuerpo: { pregunta, fecha, pantalla } }),

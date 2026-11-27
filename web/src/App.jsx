@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import Recorrido from './componentes/Recorrido.jsx';
 import ChatIA from './componentes/ChatIA.jsx';
+import Bienvenida from './producto/Bienvenida.jsx';
+import DosPasos from './producto/DosPasos.jsx';
+import PrimerCorte from './producto/PrimerCorte.jsx';
+import Saludo from './producto/Saludo.jsx';
 import { useApp } from './contexto.jsx';
 import { SECCIONES, puede } from './permisos.js';
 import Cabecera from './componentes/Cabecera.jsx';
@@ -43,6 +47,8 @@ const SIN_PERIODO_OK = ['metodologia', 'descargas', 'equipo', 'cargar', 'paramet
 function Protegida({ seccion }) {
   const { sesion, meta } = useApp();
   if (!puede(sesion.perfil, seccion.minimo)) return <SinPermiso seccion={seccion} />;
+  // Modo producto: sin cortes, toda pantalla de datos guía a cargar el primero
+  if (meta && meta.modo === 'producto' && meta.periodos.length === 0 && !SIN_PERIODO_OK.includes(seccion.clave)) return <PrimerCorte />;
   if (meta && meta.periodos.length === 0 && !SIN_PERIODO_OK.includes(seccion.clave)) {
     return (
       <EstadoVacio titulo="Aún no hay períodos cargados">
@@ -51,15 +57,22 @@ function Protegida({ seccion }) {
     );
   }
   const Pagina = PAGINAS[seccion.clave];
+  if (meta?.modo === 'producto' && seccion.clave === 'panel') return <><Saludo /><Pagina /></>;
   return <Pagina />;
 }
 
 export default function App() {
-  const { meta, errorMeta, recargarMeta, modalSesion } = useApp();
+  const { meta, errorMeta, recargarMeta, modalSesion, sesion } = useApp();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const ubicacion = useLocation();
 
   useEffect(() => { setMenuAbierto(false); window.scrollTo(0, 0); }, [ubicacion.pathname]);
+
+  // Modo producto (demo.syntropy.com.pa): primero la cuenta, luego los 2 pasos y después la app
+  if (meta?.modo === 'producto' && ubicacion.pathname !== '/pitch') {
+    if (sesion.perfil === 'publico') return <Bienvenida />;
+    if (sesion.configurar_dos_pasos) return <DosPasos />;
+  }
 
   return (
     <div className="app">
