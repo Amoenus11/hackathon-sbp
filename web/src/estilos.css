@@ -3,7 +3,7 @@
    Identidad Syntropy: fondo claro, turquesa → violeta, tarjetas blancas, mucho aire, números tabulares.
    ===================================================================== */
 :root {
-  color-scheme: light;               /* la app es clara siempre (también si el sistema está en modo oscuro) */
+  color-scheme: only light;          /* la app es clara siempre: el navegador no la oscurece por su cuenta */
   --marino: #0f172a;                 /* tinta principal */
   --marino-2: #1e293b;
   --acento: #0e7c86;                 /* turquesa */
