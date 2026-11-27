@@ -2,7 +2,7 @@
 // sus ceros a la izquierda ("07" sigue siendo "07", nunca 7).
 
 /** Convierte el texto de un CSV en { encabezado, filas } (filas = arreglos de texto). */
-export function leerCsv(texto) {
+export function leerCsv(texto, separador = ',') {
   if (texto.charCodeAt(0) === 0xfeff) texto = texto.slice(1); // quita el BOM si lo hay
   const filas = [];
   let fila = [];
@@ -15,7 +15,7 @@ export function leerCsv(texto) {
         if (texto[i + 1] === '"') { campo += '"'; i++; } else enComillas = false;
       } else campo += c;
     } else if (c === '"') enComillas = true;
-    else if (c === ',') { fila.push(campo); campo = ''; }
+    else if (c === separador) { fila.push(campo); campo = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && texto[i + 1] === '\n') i++;
       fila.push(campo); campo = '';

@@ -7,6 +7,7 @@ import { crearEstado } from './estado.js';
 import { crearSesiones, usuariosDesdeEntorno, PERMISOS, NOMBRE_PERFIL } from './sesion.js';
 import { preguntarIA } from './ia.js';
 import { crearCuentas } from './cuentas.js';
+import { crearProducto } from './producto.js';
 import {
   ORDEN_RANKINGS, TIPO_RANKING, TITULO_RANKING, VERSION_MOTOR, ErrorDatos,
   etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje, puenteEntreMeses,
@@ -21,7 +22,9 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   const estado = crearEstado({ carpetaReto, carpetaLocal, inicial: entorno.CARGA_INICIAL || 'todos' });
   const usuariosEnv = usuariosDesdeEntorno(entorno);
   const cuentas = entorno.CUENTAS ? crearCuentas(carpetaLocal, entorno.CUENTAS, entorno.URL_PUBLICA || '') : null;
-  const sesiones = crearSesiones((n) => usuariosEnv.get(n) || cuentas?.lista().find((c) => c.usuario === n),
+  const modo = entorno.MODO === 'producto' ? 'producto' : 'demo';
+  const producto = modo === 'producto' ? crearProducto(carpetaLocal) : null;
+  const sesiones = crearSesiones((n) => usuariosEnv.get(n) || cuentas?.lista().find((c) => c.usuario === n) || producto?.buscar(n),
     { archivo: join(carpetaLocal, 'sesiones.json') });
   if (entorno.RESULTADOS_DIR) estado.publicarEn(entorno.RESULTADOS_DIR);
   const seguro = entorno.COOKIE_SEGURA === '1';
@@ -98,10 +101,41 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       return res.status(401).json({ error: r.error });
     }
     if (entorno.COOKIE_DOMINIO) res.clearCookie(COOKIE, { path: '/' });
+    if (producto && producto.tieneDosPasos(r.usuario)) {
+      // Contraseña correcta, pero falta el segundo paso: la cookie se entrega al confirmar el código
+      return res.json({ paso: 'dos_pasos', ...producto.retener(r.usuario, r.token) });
+    }
     res.cookie(COOKIE, r.token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000, ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
     estado.registrar(r.usuario, r.perfil, 'iniciar_sesion', `Perfil ${NOMBRE_PERFIL[r.perfil]}`);
-    res.json({ perfil: r.perfil, usuario: r.usuario });
+    res.json({ perfil: r.perfil, usuario: r.usuario, ...(producto ? { configurar_dos_pasos: true } : {}) });
   });
+  const cookieSesion = (res, token) => res.cookie(COOKIE, token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000, ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
+  if (producto) {
+    app.get('/api/cuentas', (req, res) => res.json(producto.lista()));
+    app.post('/api/cuentas', (req, res) => {
+      const c = producto.crear(req.body || {});
+      estado.registrar(c.usuario, c.perfil, 'crear_cuenta', `${c.nombre} · perfil ${NOMBRE_PERFIL[c.perfil]}`);
+      res.json(c);
+    });
+    app.post('/api/sesion/dos-pasos', (req, res) => {
+      const d = producto.resolver(req.body?.desafio, req.body?.codigo);
+      const s = sesiones.leer(d.token);
+      cookieSesion(res, d.token);
+      estado.registrar(d.usuario, s?.perfil, 'iniciar_sesion', 'Con verificación en 2 pasos');
+      res.json({ perfil: s?.perfil, usuario: d.usuario });
+    });
+    app.post('/api/dos-pasos/configurar', (req, res) => {
+      if (!req.usuario) return res.status(401).json({ error: 'Inicia sesión.' });
+      res.json(producto.configurar(req.usuario));
+    });
+    app.post('/api/dos-pasos/confirmar', (req, res) => {
+      if (!req.usuario) return res.status(401).json({ error: 'Inicia sesión.' });
+      producto.confirmar(req.usuario, req.body?.codigo);
+      registrar(req, 'activar_dos_pasos', 'Verificación en 2 pasos activada');
+      res.json({ ok: true });
+    });
+    app.post('/api/dos-pasos/omitir', (req, res) => res.json({ ok: true }));
+  }
   app.delete('/api/sesion', (req, res) => {
     if (req.sesion) registrar(req, 'cerrar_sesion', '');
     sesiones.salir(req.token);
@@ -139,7 +173,8 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       rankings: ORDEN_RANKINGS.map((r) => ({ nombre: r, titulo: TITULO_RANKING[r], tipo: TIPO_RANKING[r], subactividades: c.subactividades[r] })),
       bancos: c.bancos.map((b) => ({ codigo: b.codigo, nombre: b.nombre })),
       fuente: FUENTE, aviso: AVISO, parametros: estado.parametros, permisos: PERMISOS, version_motor: VERSION_MOTOR,
-      perfil: req.perfil, usuario: req.usuario,
+      perfil: req.perfil, usuario: req.usuario, modo,
+      nombre: producto && req.usuario ? producto.buscar(req.usuario)?.nombre || null : null,
     });
   });
 
@@ -378,10 +413,17 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
 
   // --- Administración
   const subida = multer({ storage: multer.memoryStorage(), limits: { fileSize: 80 * 1024 * 1024, files: 1 } });
-  app.post('/api/periodos', permiso('cargar'), subida.single('archivo'), (req, res) => {
-    if (!req.file) throw new ErrorDatos('Adjunta un archivo CSV en el campo «archivo».');
+  app.post('/api/periodos', permiso('cargar'), subida.single('archivo'), async (req, res) => {
+    if (!req.file) throw new ErrorDatos('Adjunta un archivo CSV o Excel en el campo «archivo».');
     const inicio = Date.now();
-    const { fechas, reemplazo } = estado.cargar(req.file.originalname, req.file.buffer, req.usuario);
+    let cargado;
+    try {
+      cargado = await estado.cargar(req.file.originalname, req.file.buffer, req.usuario);
+    } catch (e) {
+      registrar(req, 'carga_fallida', `${req.file.originalname} · ${e.message}`.slice(0, 300));
+      throw e;
+    }
+    const { fechas, reemplazo, conversion } = cargado;
     const procesados = fechas.map((f) => estado.periodo(f));
     let movimientos = 0;
     let explicaciones = [];
@@ -395,7 +437,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     registrar(req, reemplazo ? 'actualizar_periodo' : 'cargar_periodo', `${req.file.originalname} · ${procesados.map((p) => `${p.fecha} (${p.filas_leidas} filas)`).join(', ')}`);
     res.json({
       procesados: procesados.map((p) => ({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), filas_leidas: p.filas_leidas, universo: p.universo, cascada: p.cascada, cuadra: p.cuadra })),
-      reemplazo, comparado_con: anterior?.fecha || null, movimientos_significativos: movimientos, explicaciones, milisegundos: Date.now() - inicio,
+      reemplazo, comparado_con: anterior?.fecha || null, movimientos_significativos: movimientos, explicaciones, milisegundos: Date.now() - inicio, conversion,
     });
   });
   app.delete('/api/periodos/:fecha', permiso('cargar'), (req, res) => {
@@ -410,6 +452,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     res.json(nuevos);
   });
   app.get('/api/registro', permiso('registro'), (req, res) => res.json(estado.registro()));
+  app.get('/api/cargas', permiso('calidad'), (req, res) => res.json(estado.cargas()));
 
   // --- Asistente IA (explica resultados ya calculados)
   // Límite para el perfil Público: 8 preguntas cada 10 minutos por dirección IP (cuida la suscripción).
@@ -471,7 +514,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, _next) => {
-    if (err instanceof ErrorDatos) return res.status(400).json({ error: err.message });
+    if (err instanceof ErrorDatos) return res.status(400).json({ error: err.message, ...(err.detalle ? { detalle: err.detalle } : {}) });
     if (err.estado) return res.status(err.estado).json({ error: err.message });
     if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'El archivo supera 80 MB.' });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'El cuerpo de la petición no es JSON válido.' });

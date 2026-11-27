@@ -30,7 +30,9 @@ export const CINU_TARJETA = 'K.64.649.6499.64991';
 const FACILIDAD_TARJETA = '07';
 const FACILIDAD_AUTO = '03';
 
-export class ErrorDatos extends Error {}
+export class ErrorDatos extends Error {
+  constructor(mensaje, detalle) { super(mensaje); this.detalle = detalle; }
+}
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 export const etiquetaPeriodo = (f) => `${MESES[Number(f.slice(4, 6)) - 1]} ${f.slice(0, 4)}`;
@@ -56,7 +58,9 @@ export function cargarCatalogos({ cinu, sb21, bancos, diccionario }) {
   const listaBancos = leerCsvObjetos(bancos)
     .map((f) => ({ codigo: f.Codigo_Banco, nombre: f.Nombre_Ficticio, licencia: f.Tipo_Licencia }))
     .sort((a, b) => a.codigo.localeCompare(b.codigo));
-  const columnas = leerCsvObjetos(diccionario).map((f) => f.Campo);
+  const filasDiccionario = leerCsvObjetos(diccionario);
+  const columnas = filasDiccionario.map((f) => f.Campo);
+  const tipos = Object.fromEntries(filasDiccionario.map((f) => [f.Campo, f.Tipo]));
   return {
     cinu: porCodigo,
     listaCinu: filasCinu.length ? [...porCodigo.values()] : [],
@@ -66,6 +70,7 @@ export function cargarCatalogos({ cinu, sb21, bancos, diccionario }) {
     bancos: listaBancos,
     bancoPorCodigo: new Map(listaBancos.map((b) => [b.codigo, b])),
     columnas,
+    tipos,
     nombreTarjeta: porCodigo.get(CINU_TARJETA)?.subactividad ?? 'Tarjeta',
   };
 }
