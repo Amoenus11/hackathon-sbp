@@ -11,6 +11,7 @@ export default function Pie() {
       <p className="pie-equipo">
         Syntropy · Hackathon SBP 2026 · «Del caos de datos al orden de las decisiones»
         {meta?.version_motor ? ` · Motor de cálculo v${meta.version_motor}` : ''}
+        {' · '}<a href="https://github.com/Amoenus11/hackathon-sbp" target="_blank" rel="noopener noreferrer">Código fuente en GitHub ↗</a>
       </p>
     </footer>
   );

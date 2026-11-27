@@ -24,6 +24,7 @@
 
 /* ------------------------------------------------------------------ 1. Portada */
 .eq-portada {
+  container-type: inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   align-items: center;
@@ -54,9 +55,10 @@
   color: var(--eq-tinta-3);
 }
 .eq-marca {
-  font-size: clamp(2.6rem, 6vw, 4.4rem);
-  font-weight: 900;
-  letter-spacing: .14em;
+  font-size: clamp(2.1rem, 7.2cqi, 4.6rem);
+  font-weight: 800;
+  letter-spacing: .06em;
+  white-space: nowrap;
   line-height: 1.05;
   margin-top: .4rem !important;
   background: var(--eq-degradado);
@@ -385,4 +387,10 @@
   .eq-valores { grid-template-columns: 1fr; }
   .eq-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .eq-mision { padding: 1.2rem 1.2rem; }
+}
+
+/* La portada pasa a una columna cuando la tarjeta es angosta (laptops con el menú abierto) */
+@container (max-width: 880px) {
+  .eq-portada { grid-template-columns: 1fr; }
+  .eq-marca { font-size: clamp(2.1rem, 11cqi, 4.2rem); }
 }

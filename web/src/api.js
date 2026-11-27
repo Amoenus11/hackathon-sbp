@@ -45,6 +45,7 @@ async function solicitar(ruta, { metodo = 'GET', cuerpo } = {}) {
   const esJson = (respuesta.headers.get('content-type') || '').includes('application/json');
   const datos = esJson ? await respuesta.json().catch(() => null) : null;
   if (!respuesta.ok) {
+    if (respuesta.status === 401 && ruta !== '/sesion') window.dispatchEvent(new CustomEvent('syntropy:sesion-vencida'));
     throw new ErrorApi(datos?.error || MENSAJES[respuesta.status] || `Error ${respuesta.status}`, respuesta.status);
   }
   return datos;

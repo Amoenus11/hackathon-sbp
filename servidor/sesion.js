@@ -1,6 +1,9 @@
 // Perfiles y sesiones. Público no necesita sesión; analista y administrador entran con usuario y
 // contraseña definidos en .env (guardadas como huella scrypt, nunca en claro ni en el repositorio).
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+
+const huellaToken = (t) => createHash('sha256').update(String(t)).digest('hex');
 
 export const PERMISOS = {
   publico: ['panel', 'rankings', 'metodologia', 'descargas', 'asistente', 'equipo'],
@@ -47,9 +50,20 @@ export function usuariosDesdeEntorno(entorno) {
 const DURACION_MS = 8 * 60 * 60 * 1000;
 const MAX_FALLOS = 5;
 
-export function crearSesiones(usuarios) {
+export function crearSesiones(usuarios, { archivo } = {}) {
   const buscar = typeof usuarios === 'function' ? usuarios : (n) => usuarios.get(n);
-  const sesiones = new Map();
+  // Las sesiones se guardan en disco (solo la huella SHA-256 del token): publicar una versión nueva
+  // no cierra la sesión de nadie.
+  let sesiones = new Map();
+  if (archivo && existsSync(archivo)) {
+    try { sesiones = new Map(Object.entries(JSON.parse(readFileSync(archivo, 'utf8')))); } catch { sesiones = new Map(); }
+  }
+  const guardar = () => {
+    if (!archivo) return;
+    const vivas = Object.fromEntries([...sesiones].filter(([, s]) => s.expira > Date.now()));
+    writeFileSync(`${archivo}.tmp`, JSON.stringify(vivas), { mode: 0o600 });
+    renameSync(`${archivo}.tmp`, archivo);
+  };
   const fallos = new Map(); // usuario → { n, hasta }
   return {
     entrar(usuario, clave) {
@@ -65,17 +79,23 @@ export function crearSesiones(usuarios) {
       }
       fallos.set(nombre, { n: 0, hasta: 0 });
       const token = randomBytes(32).toString('hex');
-      sesiones.set(token, { usuario: u.usuario, perfil: u.perfil, expira: Date.now() + DURACION_MS });
+      sesiones.set(huellaToken(token), { usuario: u.usuario, expira: Date.now() + DURACION_MS });
+      guardar();
       return { token, usuario: u.usuario, perfil: u.perfil };
     },
-    leer(token) {
-      const s = token ? sesiones.get(token) : null;
-      if (!s || s.expira < Date.now()) return null;
-      return s;
+    /** Acepta uno o varios tokens (si el navegador manda dos cookies con el mismo nombre). */
+    leer(tokens) {
+      for (const token of [].concat(tokens || [])) {
+        const s = sesiones.get(huellaToken(token));
+        if (!s || s.expira < Date.now()) continue;
+        const u = buscar(s.usuario); // el perfil se lee siempre del usuario (si cambia, cambia al momento)
+        if (u) return { usuario: u.usuario, perfil: u.perfil, token };
+      }
+      return null;
     },
-    salir(token) {
-      const s = sesiones.get(token);
-      if (s) s.expira = 0;
+    salir(tokens) {
+      for (const token of [].concat(tokens || [])) sesiones.delete(huellaToken(token));
+      guardar();
     },
   };
 }

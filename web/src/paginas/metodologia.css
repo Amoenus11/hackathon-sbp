@@ -1,0 +1,143 @@
+/* =====================================================================
+   Metodología: «Cómo se calcula cada ranking». Estilo sobrio (mucho aire, tipografía grande,
+   tarjetas blancas con sombra muy suave), acentos turquesa → violeta.
+   Todas las clases empiezan con «met-».
+   ===================================================================== */
+.met {
+  --met-degradado: linear-gradient(120deg, #0e7c86, #5b4bdb);
+  --met-tinta: #0f172a;
+  --met-tinta-2: #334155;
+  --met-tinta-3: #64748b;
+  --met-borde: #e2e8f0;
+  --met-sombra: 0 1px 2px rgba(15, 23, 42, .04), 0 10px 30px rgba(15, 23, 42, .06);
+  --met-actividad: #0e7c86;
+  --met-facilidad: #5b4bdb;
+  --met-banco: #d97706;
+}
+
+.met-seccion { margin: 0 0 2.4rem; }
+.met-titulo-seccion { font-size: 1.25rem; font-weight: 700; color: var(--met-tinta); letter-spacing: -.01em; margin: 0 0 1rem; }
+.met-intro { color: var(--met-tinta-3); max-width: 62ch; margin: -.4rem 0 1.2rem; font-size: .98rem; }
+
+/* ------------------------------------------------------------ recorrido en 5 pasos */
+.met-recorrido {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem;
+}
+.met-paso {
+  position: relative; background: #fff; border: 1px solid var(--met-borde); border-radius: 18px;
+  box-shadow: var(--met-sombra); padding: 1.35rem 1.3rem 1.3rem; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.met-paso-numero {
+  width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid; place-items: center;
+  background: var(--met-degradado); color: #fff; font-weight: 800; font-size: 1.15rem;
+  box-shadow: 0 6px 16px rgba(91, 75, 219, .25); margin-bottom: .9rem;
+}
+.met-paso-titulo { font-size: 1.02rem; font-weight: 700; color: var(--met-tinta); margin: 0 0 .5rem; line-height: 1.25; }
+.met-paso-cifra {
+  font-size: 2.05rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; margin: 0;
+  background: var(--met-degradado); -webkit-background-clip: text; background-clip: text; color: transparent;
+  overflow-wrap: anywhere;
+}
+.met-paso-etiqueta { color: var(--met-tinta-3); font-size: .84rem; margin: .25rem 0 .8rem; }
+.met-paso-texto { color: var(--met-tinta-2); font-size: .9rem; line-height: 1.5; }
+.met-paso-texto p { margin: .6rem 0 0; }
+.met-nota { color: var(--met-tinta-3); font-size: .82rem; }
+.met-nota-destacada { background: #f5f3ff; border-radius: 10px; padding: .55rem .7rem; color: #3f35a5; }
+.met-exacto { display: block; font-size: .8rem; color: var(--met-tinta-3); margin: -.45rem 0 .5rem; }
+
+/* flechas entre pasos: ocultas en la rejilla de 2 columnas */
+.met-flecha { display: none; color: #a5b4c8; align-items: center; justify-content: center; }
+
+/* mini embudo de exclusiones */
+.met-embudo { list-style: none; margin: .2rem 0 0; padding: 0; display: grid; gap: .45rem; }
+.met-embudo li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nombre n" "barra barra"; gap: .15rem .5rem; align-items: center; }
+.met-embudo-nombre { grid-area: nombre; font-size: .78rem; color: var(--met-tinta-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.met-embudo-nombre b { color: #b45309; font-weight: 800; margin-right: .15rem; }
+.met-embudo-n { grid-area: n; font-size: .8rem; font-weight: 700; color: var(--met-tinta); }
+.met-embudo-barra { grid-area: barra; height: 6px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+.met-embudo-barra i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #f59e0b, #d97706); }
+
+/* reconciliaciones */
+.met-controles { list-style: none; margin: .7rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .35rem; }
+.met-controles li { font-size: .78rem; font-weight: 700; border-radius: 999px; padding: .2rem .55rem; }
+.met-ok { background: #ecfdf3; color: #15803d; }
+.met-falla { background: #fef2f2; color: #b91c1c; }
+
+/* franja de confianza */
+.met-confianza {
+  list-style: none; margin: 1.1rem 0 0; padding: .9rem 1.2rem; border-radius: 18px;
+  background: #fff; border: 1px solid var(--met-borde); box-shadow: var(--met-sombra);
+  display: flex; flex-wrap: wrap; gap: .6rem 1.8rem; color: var(--met-tinta-2); font-size: .9rem;
+}
+.met-confianza span { color: #15803d; font-weight: 800; margin-right: .2rem; }
+
+/* ------------------------------------------------------------ cómo se conectan los archivos */
+.met-er {
+  display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 1.4rem 2rem; align-items: center;
+  background: #fff; border: 1px solid var(--met-borde); border-radius: 18px; box-shadow: var(--met-sombra);
+  padding: 1.6rem;
+}
+.met-er-relaciones { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+.met-er-fila { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(220px, 300px); gap: 1rem; align-items: center; }
+.met-er-enlace { display: grid; gap: .3rem; color: var(--met-rel, var(--met-tinta-3)); }
+.met-er-pregunta { font-size: .98rem; font-weight: 700; color: var(--met-tinta); }
+.met-er-linea { width: 100%; height: 12px; display: block; }
+.met-er-linea line { stroke: currentColor; stroke-width: 2.5; stroke-dasharray: 7 5; }
+.met-er-linea path { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.met-er-llaves { font-size: .76rem; color: var(--met-tinta-3); background: none; padding: 0; }
+
+/* tarjetas de tabla */
+.met-tabla { border: 1px solid var(--met-borde); border-radius: 14px; overflow: hidden; background: #fff; }
+.met-tabla-principal { border-color: #cbd5e1; box-shadow: 0 8px 24px rgba(15, 23, 42, .07); }
+.met-tabla-cabecera { padding: .7rem .95rem; background: #f8fafc; border-bottom: 1px solid var(--met-borde); display: grid; line-height: 1.25; }
+.met-tabla-principal .met-tabla-cabecera { background: var(--met-degradado); color: #fff; border-bottom: 0; }
+.met-tabla-cabecera strong { font-size: .95rem; color: inherit; }
+.met-tabla-cabecera span { font-size: .78rem; color: var(--met-tinta-3); }
+.met-tabla-principal .met-tabla-cabecera span { color: rgba(255, 255, 255, .85); }
+.met-tabla-campos { list-style: none; margin: 0; padding: .45rem .3rem; }
+.met-tabla-campos li { display: flex; align-items: center; gap: .5rem; padding: .32rem .65rem; border-radius: 8px; font-size: .84rem; color: var(--met-tinta-2); }
+.met-tabla-campos code { background: none; padding: 0; font-size: .82rem; color: var(--met-tinta); }
+.met-campo-nota { margin-left: auto; font-size: .74rem; color: var(--met-tinta-3); }
+.met-punto { width: 9px; height: 9px; border-radius: 50%; background: var(--met-rel, #cbd5e1); flex: none; }
+.met-punto-vacio { background: #e2e8f0; }
+.met-llave { font-size: .64rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; border-radius: 5px; padding: .08rem .35rem; background: #eef2f6; color: var(--met-tinta-2); flex: none; }
+
+/* colores de cada relación (el mismo en el campo del AT03, la línea y la llave del catálogo) */
+.met-rel-actividad { --met-rel: var(--met-actividad); }
+.met-rel-facilidad { --met-rel: var(--met-facilidad); }
+.met-rel-banco { --met-rel: var(--met-banco); }
+.met-tabla-campos li.met-rel-actividad, .met-tabla-campos li.met-rel-facilidad, .met-tabla-campos li.met-rel-banco {
+  background: color-mix(in srgb, var(--met-rel) 9%, #fff); font-weight: 600;
+}
+.met-tabla-campos li[class^="met-rel"] .met-llave { background: var(--met-rel); color: #fff; }
+
+/* ------------------------------------------------------------ reglas exactas */
+.met-detalles { background: #fff; border: 1px solid var(--met-borde); border-radius: 18px; box-shadow: var(--met-sombra); }
+.met-detalles summary { cursor: pointer; padding: 1rem 1.3rem; font-weight: 700; color: var(--met-tinta); list-style: none; display: flex; align-items: center; gap: .6rem; }
+.met-detalles summary::-webkit-details-marker { display: none; }
+.met-detalles summary::before { content: "›"; font-size: 1.4rem; line-height: 1; color: #5b4bdb; transition: transform .2s; }
+.met-detalles[open] summary::before { transform: rotate(90deg); }
+.met-detalles-cuerpo { padding: 0 1.3rem 1.2rem; }
+.met-reglas { margin: 0; padding-left: 1.2rem; display: grid; gap: .6rem; color: var(--met-tinta-2); font-size: .92rem; line-height: 1.55; }
+.met-reglas strong { color: var(--met-tinta); }
+
+/* ------------------------------------------------------------ pantallas anchas: los 5 pasos en fila */
+@media (min-width: 1370px) {
+  .met-recorrido { display: flex; align-items: stretch; gap: 0; }
+  .met-paso { flex: 1 1 0; }
+  .met-flecha { display: flex; flex: 0 0 30px; }
+  .met-paso-cifra { font-size: 1.85rem; }
+}
+
+/* ------------------------------------------------------------ teléfono: todo en una columna */
+@media (max-width: 760px) {
+  .met-recorrido { display: flex; flex-direction: column; gap: 0; }
+  .met-flecha { display: flex; height: 30px; }
+  .met-flecha svg { transform: rotate(90deg); }
+  .met-er { grid-template-columns: 1fr; padding: 1.1rem; }
+  .met-er-fila { grid-template-columns: 1fr; gap: .45rem; }
+  .met-er-linea { transform: rotate(90deg); width: 34px; height: 34px; margin: 0 auto; }
+  .met-er-enlace { justify-items: center; text-align: center; }
+}

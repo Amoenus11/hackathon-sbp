@@ -23,7 +23,7 @@ export function Marca() {
 }
 
 export default function Cabecera({ alAbrirMenu, menuAbierto }) {
-  const { meta, fecha, setFecha, sesion, setSesion, abrirSesion } = useApp();
+  const { meta, fecha, setFecha, sesion, setSesion, abrirSesion, paso, setPaso } = useApp();
   const navegar = useNavigate();
   const ubicacion = useLocation();
 
@@ -54,6 +54,12 @@ export default function Cabecera({ alAbrirMenu, menuAbierto }) {
       </Link>
 
       <div className="cabecera-derecha">
+        <button type="button" className="boton-cabecera boton-guia" onClick={() => setPaso(paso === null ? 0 : null)} aria-pressed={paso !== null}>
+          <span aria-hidden="true">▶</span><span className="texto-largo"> Presentación guiada</span>
+        </button>
+        <Link to="/asistente" className="boton-cabecera boton-ia">
+          <span aria-hidden="true">✦</span><span className="texto-largo"> Pregúntale a la IA</span>
+        </Link>
         {meta?.periodos?.length > 0 && (
           <label className="selector-periodo">
             <span>Período</span>

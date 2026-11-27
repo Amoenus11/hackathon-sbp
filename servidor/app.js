@@ -21,7 +21,8 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   const estado = crearEstado({ carpetaReto, carpetaLocal, inicial: entorno.CARGA_INICIAL || 'todos' });
   const usuariosEnv = usuariosDesdeEntorno(entorno);
   const cuentas = entorno.CUENTAS ? crearCuentas(carpetaLocal, entorno.CUENTAS, entorno.URL_PUBLICA || '') : null;
-  const sesiones = crearSesiones((n) => usuariosEnv.get(n) || cuentas?.lista().find((c) => c.usuario === n));
+  const sesiones = crearSesiones((n) => usuariosEnv.get(n) || cuentas?.lista().find((c) => c.usuario === n),
+    { archivo: join(carpetaLocal, 'sesiones.json') });
   if (entorno.RESULTADOS_DIR) estado.publicarEn(entorno.RESULTADOS_DIR);
   const seguro = entorno.COOKIE_SEGURA === '1';
   const app = express();
@@ -42,9 +43,10 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
 
   // --- Sesión: público por defecto
   app.use((req, res, next) => {
-    const token = (req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).find(([k]) => k === COOKIE)?.[1];
-    req.token = token;
-    req.sesion = sesiones.leer(token);
+    // Todas las cookies con nuestro nombre (puede haber una vieja de antes del cambio de dominio)
+    const tokens = (req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).filter(([k, v]) => k === COOKIE && v).map(([, v]) => v);
+    req.token = tokens;
+    req.sesion = sesiones.leer(tokens);
     req.perfil = req.sesion?.perfil || 'publico';
     req.usuario = req.sesion?.usuario || null;
     if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.path.startsWith('/api/') && req.get('X-Syntropy') !== '1') {
@@ -95,6 +97,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       estado.registrar(String(req.body?.usuario || '').slice(0, 40), 'publico', 'sesion_fallida', 'Usuario o contraseña incorrectos');
       return res.status(401).json({ error: r.error });
     }
+    if (entorno.COOKIE_DOMINIO) res.clearCookie(COOKIE, { path: '/' });
     res.cookie(COOKIE, r.token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000, ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
     estado.registrar(r.usuario, r.perfil, 'iniciar_sesion', `Perfil ${NOMBRE_PERFIL[r.perfil]}`);
     res.json({ perfil: r.perfil, usuario: r.usuario });
@@ -103,6 +106,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     if (req.sesion) registrar(req, 'cerrar_sesion', '');
     sesiones.salir(req.token);
     res.clearCookie(COOKIE, { path: '/', ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
+    res.clearCookie(COOKIE, { path: '/' }); // también la cookie antigua, solo de syntropy.com.pa
     res.json({ perfil: 'publico', usuario: null });
   });
 
