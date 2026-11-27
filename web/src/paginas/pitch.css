@@ -369,3 +369,7 @@
 }
 
 .pt-respuesta { display: block; text-align: center; max-width: 980px; margin: 1.6rem auto 0; font-size: clamp(1.05rem, min(1.9vw, 3.2vh), 1.6rem); line-height: 1.45; color: var(--pt-tinta-2, #334155); }
+
+/* Diapositivas centradas: todo el bloque alineado al centro */
+.pt-centro { display: flex !important; flex-direction: column; align-items: center; text-align: center; }
+.pt-centro > * { margin-left: auto !important; margin-right: auto !important; max-width: min(1100px, 92vw); }

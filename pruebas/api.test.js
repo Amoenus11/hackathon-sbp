@@ -7,12 +7,17 @@ import { join } from 'node:path';
 import { crearApp } from '../servidor/app.js';
 import { huellaClave } from '../servidor/sesion.js';
 import { COLUMNAS } from '../motor/exportar.js';
+// Contraseñas de prueba generadas al azar en cada ejecución (ninguna queda escrita en el repositorio)
+import { randomBytes as __azar } from 'node:crypto';
+const CLAVES = {};
+const clave = (n) => (CLAVES[n] ||= `${__azar(12).toString('base64url')}Aa1`);
+
 
 let servidor;
 let base;
 const entorno = {
-  USUARIO_1: `ana:analista:${huellaClave('clave-de-prueba-1')}`,
-  USUARIO_2: `admin:administrador:${huellaClave('clave-de-prueba-2')}`,
+  USUARIO_1: `ana:analista:${huellaClave(clave('0'))}`,
+  USUARIO_2: `admin:administrador:${huellaClave(clave('1'))}`,
   CARGA_INICIAL: 'julio-agosto',
 };
 
@@ -51,13 +56,13 @@ test('escrituras sin la cabecera anti-CSRF se rechazan', async () => {
 });
 
 test('analista compara períodos pero no administra', async () => {
-  const cookie = await entrar('ana', 'clave-de-prueba-1');
+  const cookie = await entrar('ana', clave('0'));
   assert.equal((await pedir('/api/movimientos', { cookie })).status, 200);
   assert.equal((await pedir('/api/registro', { cookie })).status, 403);
 });
 
 test('administrador carga septiembre: se calcula y se comparan las posiciones automáticamente', async () => {
-  const cookie = await entrar('admin', 'clave-de-prueba-2');
+  const cookie = await entrar('admin', clave('1'));
   const meta = await (await pedir('/api/meta')).json();
   assert.deepEqual(meta.periodos.map((p) => p.fecha), ['20260731', '20260831']);
   const form = new FormData();

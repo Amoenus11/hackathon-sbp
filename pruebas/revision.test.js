@@ -14,6 +14,11 @@ import { escribirCsv } from '../motor/csv.js';
 import { generar } from '../motor/exportar.js';
 import { crearApp } from '../servidor/app.js';
 import { huellaClave } from '../servidor/sesion.js';
+// Contraseñas de prueba generadas al azar en cada ejecución (ninguna queda escrita en el repositorio)
+import { randomBytes as __azar } from 'node:crypto';
+const CLAVES = {};
+const clave = (n) => (CLAVES[n] ||= `${__azar(12).toString('base64url')}Aa1`);
+
 
 const catalogos = leerCatalogos('datos/reto');
 const HIPOTECARIO = 'L.68.681.6810.00000';
@@ -156,8 +161,8 @@ test('frente al sector: puntos porcentuales sobre la variación de todo el ranki
 let servidor;
 let base;
 const entorno = {
-  USUARIO_1: `ana:analista:${huellaClave('clave-de-prueba-1')}`,
-  USUARIO_2: `admin:administrador:${huellaClave('clave-de-prueba-2')}`,
+  USUARIO_1: `ana:analista:${huellaClave(clave('0'))}`,
+  USUARIO_2: `admin:administrador:${huellaClave(clave('1'))}`,
   CARGA_INICIAL: 'julio-agosto',
 };
 before(async () => {
@@ -180,12 +185,12 @@ const subir = (cookie, nombre, contenido) => {
 
 test('API: la calidad de datos exige analista, como dice la documentación', async () => {
   assert.equal((await pedir('/api/calidad')).status, 401);
-  const ana = await entrar('ana', 'clave-de-prueba-1');
+  const ana = await entrar('ana', clave('0'));
   assert.equal((await pedir('/api/calidad', { cookie: ana })).status, 200);
 });
 
 test('API: una carga rechazada devuelve 400 claro y queda en el registro; un archivo Latin-1 se convierte y se acepta', async () => {
-  const adm = await entrar('admin', 'clave-de-prueba-2');
+  const adm = await entrar('admin', clave('1'));
   const mes13 = await subir(adm, 'mes13.csv', at03([{ Fecha: '20261331' }]));
   assert.equal(mes13.status, 400);
   assert.match((await mes13.json()).error, /mes13\.csv.*20261331/);
@@ -197,7 +202,7 @@ test('API: una carga rechazada devuelve 400 claro y queda en el registro; un arc
 });
 
 test('API: reemplazar un mes con un archivo parcial avisa cuántas filas se perdieron', async () => {
-  const adm = await entrar('admin', 'clave-de-prueba-2');
+  const adm = await entrar('admin', clave('1'));
   const parcial = at03([{ Numero_Prestamo: 'Z1' }, { Numero_Prestamo: 'Z2' }], '20260731');
   const r = await subir(adm, 'parcial.csv', parcial);
   assert.equal(r.status, 200);
@@ -209,7 +214,7 @@ test('API: reemplazar un mes con un archivo parcial avisa cuántas filas se perd
 });
 
 test('API: el parámetro «cambio de líder» con el texto "false" queda en falso (no en verdadero)', async () => {
-  const adm = await entrar('admin', 'clave-de-prueba-2');
+  const adm = await entrar('admin', clave('1'));
   const r = await pedir('/api/parametros', {
     method: 'PUT', cookie: adm, headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mov_min_posiciones: 2, mov_cambio_lider: 'false', mov_var_saldo_pct: 15 }),
@@ -229,7 +234,7 @@ test('API: con una base de comparación elegida, rankings, panel y movimientos d
   try {
     const url = `http://127.0.0.1:${srv.address().port}`;
     const ana = await (async () => {
-      const r = await fetch(`${url}/api/sesion`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Syntropy': '1' }, body: JSON.stringify({ usuario: 'ana', clave: 'clave-de-prueba-1' }) });
+      const r = await fetch(`${url}/api/sesion`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Syntropy': '1' }, body: JSON.stringify({ usuario: 'ana', clave: clave('0') }) });
       return r.headers.get('set-cookie').split(';')[0];
     })();
     const ver = (ruta) => fetch(url + ruta, { headers: { 'X-Syntropy': '1', cookie: ana } }).then((r) => r.json());
