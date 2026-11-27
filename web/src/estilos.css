@@ -774,3 +774,13 @@ section[aria-labelledby="usuarios-roles-titulo"] select { appearance: none; -web
 section[aria-labelledby="usuarios-roles-titulo"] select:hover { border-color: var(--acento); }
 section[aria-labelledby="usuarios-roles-titulo"] select:has(option[value="administrador"]:checked) { background-color: #f3e8ff; border-color: #e5d0fb; color: #6b21a8; }
 section[aria-labelledby="usuarios-roles-titulo"] select:has(option[value="analista"]:checked) { background-color: #eef2ff; border-color: #d9dcfb; color: #3f35b5; }
+
+.agregar-persona { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .9rem; padding: .7rem .8rem; border-radius: 14px; background: #f8fafc; border: 1px solid var(--borde); }
+.agregar-persona input, .agregar-persona select { padding: .4rem .7rem; border: 1px solid var(--borde-fuerte); border-radius: 999px; font-size: .88rem; min-width: 0; }
+.entrega-cuenta { margin-bottom: .9rem; padding: .8rem 1rem; border-radius: 14px; background: #effaf2; border: 1px solid #bfe7cb; font-size: .9rem; }
+.entrega-datos { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .3rem 0 0; }
+
+/* «SYNTROPY» en la cabecera lleva a la página del equipo, con un destello discreto */
+.marca-texto { cursor: pointer; position: relative; }
+.marca-equipo { display: inline-block; margin-left: .3rem; font-size: .7em; color: var(--acento-2); -webkit-text-fill-color: var(--acento-2); opacity: 0; transform: scale(.6); transition: opacity .2s, transform .2s; }
+.cabecera-marca:hover .marca-equipo, .marca-texto:focus-visible .marca-equipo { opacity: 1; transform: scale(1) rotate(20deg); }

@@ -6,7 +6,7 @@ import { PERFILES, seccionesDe } from '../permisos.js';
 
 export default function Menu({ abierto, alCerrar }) {
   const { sesion, abrirSesion } = useApp();
-  const secciones = seccionesDe(sesion.perfil);
+  const secciones = seccionesDe(sesion.perfil).filter((s) => !s.oculto);
   const grupos = [...new Set(secciones.map((s) => s.grupo))];
   const ubicacion = useLocation();
   // Grupos plegables: se recuerda la elección; el grupo de la página actual siempre se ve abierto

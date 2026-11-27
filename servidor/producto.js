@@ -19,7 +19,8 @@ export function crearProducto(carpetaLocal) {
   return {
     buscar: (n) => cuentas.find((c) => c.usuario === n),
     lista: () => cuentas.map(({ usuario, nombre, perfil, dos_pasos }) => ({ usuario, nombre, perfil, dos_pasos: Boolean(dos_pasos) })),
-    crear({ usuario, nombre, clave }) {
+    hayCuentas: () => cuentas.length > 0,
+    crear({ usuario, nombre, clave, perfil: perfilPedido }) {
       const u = String(usuario || '').trim().toLowerCase();
       const n = String(nombre || '').trim().slice(0, 60);
       const c = String(clave || '');
@@ -28,7 +29,8 @@ export function crearProducto(carpetaLocal) {
       if (c.length < 12 || !/[a-zA-Z]/.test(c) || !/\d/.test(c)) throw new ErrorDatos('La contraseña debe tener al menos 12 caracteres, con letras y números.');
       if (cuentas.some((x) => x.usuario === u)) throw new ErrorDatos('Ese usuario ya existe: elige otro o inicia sesión.');
       if (cuentas.length >= 50) throw new ErrorDatos('Este espacio de demostración ya tiene el máximo de cuentas.');
-      const perfil = cuentas.length === 0 ? 'administrador' : 'analista'; // la primera persona administra el espacio
+      // La primera persona administra el espacio; después, quien administra elige el perfil de cada cuenta nueva
+      const perfil = cuentas.length === 0 ? 'administrador' : (perfilPedido === 'administrador' ? 'administrador' : 'analista');
       cuentas.push({ usuario: u, nombre: n, perfil, huella: huellaClave(c), dos_pasos: false, creada: new Date().toISOString() });
       guardar();
       return { usuario: u, nombre: n, perfil };

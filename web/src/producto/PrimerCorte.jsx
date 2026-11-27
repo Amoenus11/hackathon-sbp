@@ -70,7 +70,7 @@ export default function PrimerCorte() {
 
   return (
     <div className="pr-vacio pr-aparece">
-      <p className="pr-antetitulo">Bienvenida{sesion.usuario ? `, ${sesion.usuario}` : ''}</p>
+      <p className="pr-antetitulo">Hola{sesion.usuario ? `, ${sesion.usuario}` : ''}</p>
       <h1 className="pr-titulo">Tu observatorio está listo.<br />Falta tu primer corte.</h1>
       <ol className="pr-tres-pasos">
         <li><span className="pr-paso-num">1</span><strong>Exporta tu AT03</strong><span>En CSV o Excel (.xlsx), con las 61 columnas del diccionario.</span></li>
@@ -108,7 +108,7 @@ export default function PrimerCorte() {
           </button>
         </>
       ) : (
-        <p className="pr-aviso-demo">Pide a tu administradora que cargue el primer corte. En cuanto esté, aquí verás los rankings.</p>
+        <p className="pr-aviso-demo">Pide a quien administra este espacio que cargue el primer corte. En cuanto esté, aquí verás los rankings.</p>
       )}
     </div>
   );

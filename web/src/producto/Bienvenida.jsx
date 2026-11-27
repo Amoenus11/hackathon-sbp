@@ -102,7 +102,7 @@ export default function Bienvenida() {
           <span className="pr-logo" aria-hidden="true">✦</span>
           <span>SYNTROPY</span>
         </div>
-        <h1 className="pr-titulo">Bienvenida al Observatorio de Crédito</h1>
+        <h1 className="pr-titulo">Te damos la bienvenida al Observatorio de Crédito</h1>
         <p className="pr-lema">Del caos de datos al orden de las decisiones.</p>
 
         {vista === 'inicio' && (
@@ -111,7 +111,7 @@ export default function Bienvenida() {
             {primera && (
               <div className="pr-primera">
                 <strong>Eres la primera persona aquí.</strong>
-                <span>Serás la administradora de este espacio: podrás cargar los cortes e invitar a tu equipo.</span>
+                <span>Administrarás este espacio: crearás las cuentas de tu equipo y cargarás los cortes.</span>
               </div>
             )}
             {cuentas?.length > 0 && (
@@ -126,12 +126,16 @@ export default function Bienvenida() {
                     </button>
                   ))}
                 </div>
-                <div className="pr-separador"><span>o</span></div>
+                
               </>
             )}
-            <button type="button" className={`boton ${primera ? 'boton-primario' : 'boton-secundario'} boton-ancho pr-boton-grande`} onClick={() => { setError(''); setVista('crear'); }}>
-              Crear una cuenta
-            </button>
+            {primera ? (
+              <button type="button" className="boton boton-primario boton-ancho pr-boton-grande" onClick={() => { setError(''); setVista('crear'); }}>
+                Crear la cuenta de administración
+              </button>
+            ) : (
+              <p className="pr-nota">¿No tienes cuenta? Pídela a quien administra este espacio.</p>
+            )}
           </div>
         )}
 
@@ -154,7 +158,7 @@ export default function Bienvenida() {
         {vista === 'crear' && (
           <form className="pr-tarjeta pr-aparece" onSubmit={crear}>
             <h2 className="pr-subtitulo">Crea tu cuenta</h2>
-            {primera && <p className="pr-nota">Serás la administradora de este espacio.</p>}
+            {primera && <p className="pr-nota">Administrarás este espacio.</p>}
             <label className="campo">
               <span>Tu nombre</span>
               <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} autoComplete="name" placeholder="Ej.: María Pérez" autoFocus required />

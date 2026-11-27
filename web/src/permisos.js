@@ -17,7 +17,7 @@ export const SECCIONES = [
   { clave: 'extraccion', ruta: '/extraccion', titulo: 'Descarga a tu medida', grupo: 'Consulta', minimo: 'publico', icono: '⤓' },
   { clave: 'descargas', ruta: '/descargas', titulo: 'Exportaciones oficiales', grupo: 'Consulta', minimo: 'publico', icono: '▤' },
   { clave: 'asistente', ruta: '/asistente', titulo: 'Asistente IA', grupo: 'Consulta', minimo: 'publico', icono: '✦' },
-  { clave: 'equipo', ruta: '/equipo', titulo: 'Equipo Syntropy', grupo: 'Consulta', minimo: 'publico', icono: '✺' },
+  { clave: 'equipo', ruta: '/equipo', titulo: 'Equipo Syntropy', grupo: 'Consulta', minimo: 'publico', icono: '✺', oculto: true },
   { clave: 'comparar', ruta: '/comparar', titulo: 'Comparar', grupo: 'Análisis', minimo: 'analista', icono: '⇄' },
   { clave: 'calidad', ruta: '/calidad', titulo: 'Calidad de datos', grupo: 'Análisis', minimo: 'analista', icono: '✓' },
   { clave: 'publicar', ruta: '/publicar', titulo: 'Preparar publicación', grupo: 'Análisis', minimo: 'analista', icono: '◉' },

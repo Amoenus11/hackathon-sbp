@@ -1,5 +1,6 @@
 // API de la plataforma (Express). Contrato completo en docs/api.md.
 import express from 'express';
+import { randomBytes } from 'node:crypto';
 import multer from 'multer';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -114,7 +115,17 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   if (producto) {
     app.get('/api/cuentas', (req, res) => res.json(producto.lista()));
     app.post('/api/cuentas', (req, res) => {
-      const c = producto.crear(req.body || {});
+      // La primera cuenta se crea sola (administración); las demás solo las crea quien administra,
+      // con una contraseña temporal al azar que se entrega una vez.
+      let datos = req.body || {};
+      let temporal = null;
+      if (producto.hayCuentas()) {
+        if (req.perfil !== 'administrador') return res.status(403).json({ error: 'Solo quien administra este espacio puede crear cuentas.' });
+        temporal = `${randomBytes(9).toString('base64url')}7a`; // al azar (crypto), con letras y números
+        datos = { ...datos, clave: temporal };
+      }
+      const c = producto.crear(datos);
+      if (temporal) c.clave_temporal = temporal;
       estado.registrar(c.usuario, c.perfil, 'crear_cuenta', `${c.nombre} · perfil ${NOMBRE_PERFIL[c.perfil]}`);
       res.json(c);
     });

@@ -3,7 +3,7 @@ import { CAPACIDADES, PERFILES, puede } from '../../permisos.js';
 import { useState } from 'react';
 import { EncabezadoPagina, Tarjeta } from '../../componentes/Comunes.jsx';
 import { api } from '../../api.js';
-import { useDatos } from '../../contexto.jsx';
+import { useApp, useDatos } from '../../contexto.jsx';
 
 // Usuarios y roles: el administrador cambia el perfil de cada cuenta (queda en el registro)
 function UsuariosRoles() {
@@ -16,9 +16,37 @@ function UsuariosRoles() {
     catch (e) { setMensaje({ ok: false, texto: e.message }); }
   }
   const lista = estado.datos || [];
+  const { meta } = useApp();
+  const [nueva, setNueva] = useState({ nombre: '', usuario: '', perfil: 'analista' });
+  const [entregada, setEntregada] = useState(null);
+  async function crear(e) {
+    e.preventDefault();
+    try {
+      const c = await api.crearCuentaEquipo({ nombre: nueva.nombre, usuario: nueva.usuario, perfil: nueva.perfil });
+      setEntregada(c); setNueva({ nombre: '', usuario: '', perfil: 'analista' }); setVersion((v) => v + 1); setMensaje(null);
+    } catch (err) { setMensaje({ ok: false, texto: err.message }); }
+  }
   return (
     <Tarjeta titulo="Usuarios y roles" subtitulo="Cambia el perfil de cada cuenta. Siempre debe quedar al menos un administrador." id="usuarios-roles">
       {mensaje && <p className={mensaje.ok ? 'mensaje-exito' : 'mensaje-error'}>{mensaje.texto}</p>}
+      {meta?.modo === 'producto' && (
+        <form className="agregar-persona" onSubmit={crear}>
+          <strong>Agregar persona</strong>
+          <input placeholder="Nombre" value={nueva.nombre} onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })} required />
+          <input placeholder="usuario" value={nueva.usuario} onChange={(e) => setNueva({ ...nueva, usuario: e.target.value.toLowerCase() })} required />
+          <select value={nueva.perfil} onChange={(e) => setNueva({ ...nueva, perfil: e.target.value })}>
+            <option value="analista">Analista</option><option value="administrador">Administrador</option>
+          </select>
+          <button type="submit" className="boton boton-primario boton-chico">Crear cuenta</button>
+        </form>
+      )}
+      {entregada && (
+        <div className="entrega-cuenta">
+          <p>Entrega estos datos a <strong>{entregada.nombre}</strong> (la contraseña solo se muestra ahora; podrá activar sus 2 pasos al entrar):</p>
+          <p className="entrega-datos">Usuario: <code>{entregada.usuario}</code> · Contraseña temporal: <code>{entregada.clave_temporal}</code>
+            <button type="button" className="boton boton-secundario boton-chico" onClick={() => navigator.clipboard?.writeText(`Usuario: ${entregada.usuario}\nContraseña: ${entregada.clave_temporal}\nhttps://demo.syntropy.com.pa`)}>Copiar</button></p>
+        </div>
+      )}
       {estado.error && <p className="mensaje-error">{estado.error.message}</p>}
       <table className="tabla tabla-compacta">
         <thead><tr><th scope="col">Usuario</th><th scope="col">Perfil</th></tr></thead>

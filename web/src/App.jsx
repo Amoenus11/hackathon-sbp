@@ -71,7 +71,7 @@ export default function App() {
 
   // Modo producto (demo.syntropy.com.pa): primero la cuenta, luego los 2 pasos y después la app
   if (meta?.modo === 'producto' && ubicacion.pathname !== '/pitch') {
-    if (sesion.perfil === 'publico') return <Bienvenida />;
+    if (sesion.perfil === 'publico' && (!meta.periodos.length || new URLSearchParams(ubicacion.search).has('entrar'))) return <Bienvenida />;
     if (sesion.configurar_dos_pasos) return <DosPasos />;
   }
 

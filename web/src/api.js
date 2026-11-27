@@ -113,6 +113,7 @@ export const api = {
 
   // Modo producto (demo.syntropy.com.pa): cuentas, verificación en 2 pasos e historial de cargas
   cuentas: () => solicitar('/cuentas'),
+  crearCuentaEquipo: (datos) => solicitar('/cuentas', { metodo: 'POST', cuerpo: datos }),
   crearCuenta: (usuario, nombre, clave) => solicitar('/cuentas', { metodo: 'POST', cuerpo: { usuario, nombre, clave } }),
   dosPasos: (desafio, codigo) => solicitar('/sesion/dos-pasos', { metodo: 'POST', cuerpo: { desafio, codigo } }),
   configurarDosPasos: () => solicitar('/dos-pasos/configurar', { metodo: 'POST' }),

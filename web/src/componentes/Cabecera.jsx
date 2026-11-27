@@ -49,7 +49,9 @@ export default function Cabecera({ alAbrirMenu, menuAbierto }) {
       <Link to="/" className="cabecera-marca" aria-label="Ir al panel principal">
         <Marca />
         <span className="cabecera-textos">
-          <strong className="marca-texto">SYNTROPY</strong>
+          <strong className="marca-texto" role="link" tabIndex={0} title="Conoce al equipo Syntropy"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); navegar('/equipo'); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); navegar('/equipo'); } }}>SYNTROPY<span className="marca-equipo" aria-hidden="true">✺</span></strong>
           <span>Observatorio de Crédito Bancario</span>
         </span>
       </Link>
