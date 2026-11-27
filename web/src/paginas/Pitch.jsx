@@ -25,8 +25,29 @@ function useCifras() {
     api.panel(ultimo).then((p) => { if (vigente) setPanel(p); }).catch(() => {});
     return () => { vigente = false; };
   }, [ultimo]);
+  const [pregunta, setPregunta] = useState(null);
+  useEffect(() => {
+    if (!ultimo || !meta?.rankings) return undefined;
+    let vigente = true;
+    (async () => {
+      const orden = ['COMERCIO', ...meta.rankings.map((r) => r.nombre).filter((n) => n !== 'COMERCIO')];
+      for (const ranking of orden) {
+        try {
+          const d = await api.anatomia(ultimo, ranking);
+          const perdio = d.filas.find((f) => f.posicion_anterior === 1 && f.posicion_actual !== 1);
+          const gano = d.filas.find((f) => f.posicion_actual === 1);
+          if (perdio && gano && Number(perdio.nuevos) >= Number(gano.nuevos) && Number(perdio.terminados) > Number(gano.terminados)) {
+            if (vigente) setPregunta({ ranking: meta.rankings.find((r) => r.nombre === ranking)?.titulo || ranking, perdio, gano });
+            return;
+          }
+        } catch { return; }
+      }
+    })();
+    return () => { vigente = false; };
+  }, [ultimo, meta]);
   const periodos = meta?.periodos || [];
   return {
+    pregunta,
     panel,
     filasTotales: periodos.length ? periodos.reduce((s, p) => s + (Number(p.filas_leidas) || 0), 0) : null,
     periodos: periodos.length || null,
@@ -89,22 +110,43 @@ function Problema({ cifras }) {
   const dimensiones = bancos && rankings && periodos;
   return (
     <div className="pt-contenido">
-      <p className="pt-antetitulo">El problema</p>
-      <h2 className="pt-titular">Hoy, comparar el crédito bancario es lento y opaco.</h2>
+      <p className="pt-antetitulo">Día 5 del mes · 7:40 a. m.</p>
+      <h2 className="pt-titular">Llegan {filasTotales ? entero(filasTotales) : 'miles de'} préstamos. Excel convierte el 07 en 7.</h2>
       <div className="pt-trio">
         <div className="pt-dato">
-          <strong>Excel y PDF</strong>
-          <span>así se consultan hoy las estadísticas</span>
+          <strong>A mano</strong>
+          <span>duplicados, extranjeros, saldos negativos y tarjetas que hay que reclasificar</span>
         </div>
         <div className="pt-dato">
           <strong>{dimensiones ? `${bancos} × ${rankings} × ${periodos}` : 'Bancos × actividades × meses'}</strong>
-          <span>{dimensiones ? `${bancos} bancos × ${rankings} actividades × ${periodos} meses` : 'para comparar a mano'}</span>
+          <span>{dimensiones ? `${bancos} bancos × ${rankings} actividades × ${periodos} meses que cuadrar al centavo` : 'que cuadrar al centavo'}</span>
         </div>
         <div className="pt-dato">
-          <strong>{filasTotales ? entero(filasTotales) : 'Miles'}</strong>
-          <span>registros, con errores intencionales que hay que detectar</span>
+          <strong>Un solo miedo</strong>
+          <span>una cifra pública equivocada no se corrige: <b>se recuerda</b></span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// La pregunta que hoy nadie responde con datos (cifras reales del último mes, nunca inventadas)
+function Pregunta({ cifras }) {
+  const q = cifras.pregunta;
+  const M = (t) => `${(Number(t) / 1e6).toLocaleString('es-PA', { maximumFractionDigits: 2 })} M`;
+  return (
+    <div className="pt-contenido pt-centro">
+      <p className="pt-antetitulo">11:00 a. m. · la pregunta del jefe</p>
+      <h2 className="pt-titular">
+        {q ? `«¿Por qué ${q.perdio.banco} perdió el primer lugar en ${q.ranking}?»` : '«¿Por qué este banco perdió el primer lugar?»'}
+      </h2>
+      <p className="pt-pie-cifra">Excel dice <b>que</b> bajó. No dice <b>por qué</b>.</p>
+      {q && (
+        <p className="pt-respuesta">
+          Prestó <b>más</b> que {q.gano.banco} ({M(q.perdio.nuevos)} frente a {M(q.gano.nuevos)}), pero le vencieron {M(q.perdio.terminados)}.{' '}
+          <span className="pt-resaltado">No prestó menos: le vencieron más.</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -112,11 +154,11 @@ function Problema({ cifras }) {
 function Solucion() {
   return (
     <div className="pt-contenido pt-centro">
-      <p className="pt-antetitulo">La solución</p>
+      <p className="pt-antetitulo">Syntropy</p>
       <h2 className="pt-frase">
-        Un observatorio que calcula los rankings <span className="pt-resaltado">al centavo</span>,{' '}
-        <span className="pt-resaltado">explica</span> cada cambio y deja <span className="pt-resaltado">rastro</span> de cada decisión.
+        Un ranking dice <span className="pt-resaltado">quién</span> va primero.<br />Syntropy dice <span className="pt-resaltado">por qué</span>.
       </h2>
+      <p className="pt-pie-cifra">Calcula al centavo, explica cada cambio y deja rastro de cada decisión.</p>
     </div>
   );
 }
@@ -144,8 +186,8 @@ function Demo({ cifras, irALaApp }) {
 function Confianza() {
   const tarjetas = [
     { valor: String(HECHOS.diferencias), titulo: 'diferencias', texto: `contra una segunda implementación independiente en Python, en las ${HECHOS.exportaciones} exportaciones oficiales` },
-    { valor: String(HECHOS.pruebas), titulo: 'pruebas automáticas', texto: 'reglas, perfiles, carga de un mes nuevo y exportaciones, en cada publicación' },
-    { valor: '¢', titulo: 'Centavos enteros', texto: 'nunca decimales binarios: no se pierde ni un centavo en ninguna suma' },
+    { valor: '4', titulo: 'reconciliaciones', texto: 'una más que las pedidas: ningún préstamo desaparece entre un mes y otro sin explicación' },
+    { valor: String(HECHOS.pruebas), titulo: 'pruebas automáticas', texto: 'reglas, perfiles, carga de un mes nuevo y exportaciones; sumas en centavos enteros' },
     { valor: '✦', titulo: 'IA que no calcula', texto: 'explica las cifras oficiales; vive aislada y solo puede leer' },
   ];
   return (
@@ -166,12 +208,17 @@ function Confianza() {
 }
 
 function Impacto() {
-  const puntos = ['Acceso para todos', 'Rankings claros y verificables', 'Comparación inmediata entre bancos y meses', 'Base para servicios digitales'];
+  const puntos = [
+    'Publicar sin miedo: todos los controles en verde y una firma',
+    'Al banco, su carta de calidad lista para enviar',
+    'Al público, rankings claros y verificables',
+    'A quien hace esto a mano, le devolvemos la mañana',
+  ];
   return (
     <div className="pt-contenido">
       <p className="pt-antetitulo">Impacto para la SBP</p>
       <h2 className="pt-titular pt-titular-grande">
-        De horas de Excel a <span className="pt-resaltado">2 segundos</span> por mes.
+        Del <span className="pt-resaltado">qué</span> al <span className="pt-resaltado">por qué</span>, en 2 segundos.
       </h2>
       <ul className="pt-puntos">
         {puntos.map((p) => (
@@ -186,6 +233,7 @@ function Cierre() {
   return (
     <div className="pt-contenido pt-centro">
       <h2 className="pt-titular">Rankings confiables para decisiones mejor informadas.</h2>
+      <p className="pt-pie-cifra">Del caos de datos al orden de las decisiones.</p>
       <p className="pt-dominio">syntropy.com.pa</p>
       <p className="pt-marca-chica">SYNTROPY</p>
     </div>
@@ -195,6 +243,7 @@ function Cierre() {
 const DIAPOSITIVAS = [
   { titulo: 'Portada', Componente: Portada },
   { titulo: 'El problema', Componente: Problema },
+  { titulo: 'La pregunta', Componente: Pregunta },
   { titulo: 'La solución', Componente: Solucion },
   { titulo: 'Demostración', Componente: Demo },
   { titulo: 'Por qué confiar', Componente: Confianza },

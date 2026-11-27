@@ -1,0 +1,44 @@
+/* Preparar publicación (semáforo de controles y firma) */
+.pub { max-width: 900px; margin: 0 auto; }
+.pub-cabecera h1 { font-size: clamp(1.8rem, 3.2vw, 2.4rem); letter-spacing: -0.03em; }
+.pub-subtitulo { color: var(--texto-3); font-size: 1.08rem; margin: .4rem 0 1.6rem; }
+
+.pub-indicador { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; padding: 1.3rem 1.5rem; border-radius: 18px;
+  background: #fff; border: 1px solid #edf0f4; box-shadow: 0 8px 24px rgba(15, 23, 42, .05); margin-bottom: 1.2rem; }
+.pub-indicador-cifra { font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 750; letter-spacing: -0.03em; }
+.pub-ok .pub-indicador-cifra { background: linear-gradient(120deg, #0e7c86, #5b4bdb); -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: .08em; }
+.pub-mal .pub-indicador-cifra { color: #b91c1c; }
+.pub-indicador-texto { font-size: 1.1rem; font-weight: 600; color: var(--texto-2); }
+.pub-ok .pub-indicador-texto { color: #15803d; }
+.pub-mal .pub-indicador-texto { color: #b91c1c; }
+
+.pub-lista { list-style: none; margin: 0 0 1.4rem; padding: 0; display: grid; gap: .55rem; }
+.pub-control { display: flex; gap: .9rem; align-items: flex-start; background: #fff; border: 1px solid #edf0f4; border-radius: 14px;
+  padding: .8rem 1rem; animation: pub-entrar .5s cubic-bezier(.2, .8, .2, 1) both; }
+.pub-circulo { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; }
+.pub-circulo-ok { background: #16a34a; box-shadow: 0 0 0 4px #dcfce7; }
+.pub-circulo-mal { background: #dc2626; box-shadow: 0 0 0 4px #fee2e2; }
+.pub-control-texto { display: grid; gap: .1rem; }
+.pub-control-texto small { color: var(--texto-3); font-size: .84rem; font-variant-numeric: tabular-nums; }
+@keyframes pub-entrar { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pub-control { animation: none; } }
+
+.pub-firma { background: #fff; border: 1px solid #edf0f4; border-radius: 18px; padding: 1.2rem 1.4rem; box-shadow: 0 8px 24px rgba(15, 23, 42, .05); }
+.pub-firma label { font-weight: 700; display: block; margin-bottom: .4rem; }
+.pub-firma-fila { display: flex; gap: .6rem; flex-wrap: wrap; }
+.pub-firma-fila input { flex: 1; min-width: 220px; padding: .65rem .85rem; border: 1px solid var(--borde-fuerte); border-radius: 999px; font-size: 1rem; }
+.pub-nota { color: var(--texto-3); font-size: .84rem; margin: .6rem 0 0; }
+
+.pub-sello { display: flex; gap: 1.1rem; align-items: center; padding: 1.3rem 1.5rem; border-radius: 18px;
+  background: linear-gradient(120deg, rgba(14, 124, 134, .08), rgba(91, 75, 219, .08)); border: 1px solid #d9e6f2; }
+.pub-sello-marca { flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 2rem; color: #fff;
+  background: linear-gradient(120deg, #0e7c86, #5b4bdb); box-shadow: 0 10px 26px rgba(91, 75, 219, .3); }
+.pub-sello strong { display: block; font-size: 1.15rem; }
+.pub-sello span { color: var(--texto-2); }
+.pub-enlaces { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .8rem; }
+
+.pub-historial { margin-top: 1.8rem; }
+.pub-historial h2 { font-size: 1.05rem; margin-bottom: .5rem; }
+.pub-historial ul { margin: 0; padding-left: 1.1rem; color: var(--texto-2); display: grid; gap: .3rem; }
+.pub-historial ul span { color: var(--texto-3); }
+.pub-vacio { color: var(--texto-3); }

@@ -19,6 +19,8 @@ export const SECCIONES = [
   { clave: 'equipo', ruta: '/equipo', titulo: 'Equipo Syntropy', grupo: 'Consulta', minimo: 'publico', icono: '✺' },
   { clave: 'comparar', ruta: '/comparar', titulo: 'Comparar', grupo: 'Análisis', minimo: 'analista', icono: '⇄' },
   { clave: 'calidad', ruta: '/calidad', titulo: 'Calidad de datos', grupo: 'Análisis', minimo: 'analista', icono: '✓' },
+  { clave: 'publicar', ruta: '/publicar', titulo: 'Preparar publicación', grupo: 'Análisis', minimo: 'analista', icono: '◉' },
+  { clave: 'carta', ruta: '/carta', titulo: 'Carta al banco', grupo: 'Análisis', minimo: 'analista', icono: '✉' },
   { clave: 'reportes', ruta: '/reportes', titulo: 'Reportes', grupo: 'Análisis', minimo: 'analista', icono: '▤' },
   { clave: 'cargar', ruta: '/admin/cargar', titulo: 'Cargar período', grupo: 'Administración', minimo: 'administrador', icono: '⇪' },
   { clave: 'parametros', ruta: '/admin/parametros', titulo: 'Parámetros', grupo: 'Administración', minimo: 'administrador', icono: '⚙' },

@@ -26,7 +26,7 @@ export const PASOS_TODOS = [
     texto: '6 actividades × 12 bancos: posición, saldo y ponderación oficial.',
     focos: [
       { sel: 'section[aria-labelledby="grafico-ranking-titulo"]', texto: 'Los 12 bancos ordenados por saldo. Empate: gana el código de banco menor. Siempre están los 12.' },
-      { sel: 'section[aria-labelledby="tabla-ranking-titulo"]', texto: 'Saldo, cartera total del banco y ponderación oficial, con el cambio frente al mes anterior. Toca un banco para ver su desglose (Tarjeta por la regla SB21).' },
+      { sel: 'section[aria-labelledby="tabla-ranking-titulo"]', texto: 'Saldo, cartera total y ponderación oficial. Toca un banco: su desglose (Tarjeta por la regla SB21) y la ANATOMÍA DEL CAMBIO: cuánto prestó, cuánto le venció y cuánto amortizó. Un ranking dice quién va primero; Syntropy dice por qué.' },
     ],
   },
   {
@@ -50,7 +50,7 @@ export const PASOS_TODOS = [
     ruta: '/comparar', titulo: 'Quién sube y quién baja', minimo: 'analista',
     texto: 'Los movimientos significativos según una regla configurable, cada uno explicado.',
     focos: [
-      { sel: 'section[aria-labelledby="explicaciones-titulo"]', texto: 'Cada movimiento significativo, explicado automáticamente: quién sube, a quién supera y cuánto creció su saldo.' },
+      { sel: 'section[aria-labelledby="explicaciones-titulo"]', texto: 'Cada movimiento, explicado con su porqué: «No prestó menos: le vencieron más». Quién sube, a quién supera y qué lo movió.' },
       { sel: 'section[aria-labelledby="tabla-movimientos-titulo"]', texto: 'La regla es configurable: posiciones, cambio de líder o variación de saldo. Todo queda en el registro.' },
     ],
   },
@@ -59,7 +59,22 @@ export const PASOS_TODOS = [
     texto: 'Cada fila excluida con su motivo y las cuentas cuadradas al centavo.',
     focos: [
       { sel: '.ecuacion', texto: 'Filas leídas = E1 + E2 + E3 + E4 + universo. Cuadra en los tres meses.' },
-      { sel: 'section[aria-labelledby="reconciliaciones-titulo"]', texto: 'Reconciliaciones al centavo: subactividades, actividades y totales del sistema.' },
+      { sel: 'section[aria-labelledby="reconciliaciones-titulo"]', texto: 'Reconciliaciones al centavo, y una cuarta que nadie pidió: el puente entre meses. Ningún préstamo desaparece sin explicación.' },
+    ],
+  },
+  {
+    ruta: '/publicar', titulo: 'Publicar sin miedo', minimo: 'analista',
+    texto: 'Todos los controles en verde, una firma y queda registrado.',
+    focos: [
+      { sel: '.pub-lista', texto: 'El botón que le quita el miedo a publicar: todos los controles de la Sección 12 en verde antes de firmar.' },
+      { sel: '.pub-firma', texto: 'La analista firma con su nombre y queda en el registro de operaciones, con fecha y hora.' },
+    ],
+  },
+  {
+    ruta: '/carta', titulo: 'Al banco, su carta de calidad', minimo: 'analista',
+    texto: 'La SBP no solo mide: le devuelve al banco cómo mejorar.',
+    focos: [
+      { sel: '.car-conteos', texto: 'Cada banco recibe sus filas observadas (duplicados, saldos no positivos, actividades fuera del catálogo), lista para enviar.' },
     ],
   },
   {

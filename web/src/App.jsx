@@ -21,6 +21,8 @@ import Reportes from './paginas/Reportes.jsx';
 import Asistente from './paginas/Asistente.jsx';
 import Equipo from './paginas/Equipo.jsx';
 import Pitch from './paginas/Pitch.jsx';
+import Publicar from './paginas/Publicar.jsx';
+import Carta from './paginas/Carta.jsx';
 import CargarPeriodo from './paginas/admin/CargarPeriodo.jsx';
 import Parametros from './paginas/admin/Parametros.jsx';
 import Catalogos from './paginas/admin/Catalogos.jsx';
@@ -30,7 +32,7 @@ import NoEncontrada from './paginas/NoEncontrada.jsx';
 
 const PAGINAS = {
   panel: Panel, rankings: Rankings, metodologia: Metodologia, descargas: Descargas,
-  comparar: Comparar, calidad: Calidad, reportes: Reportes, asistente: Asistente, equipo: Equipo,
+  comparar: Comparar, calidad: Calidad, reportes: Reportes, asistente: Asistente, equipo: Equipo, publicar: Publicar, carta: Carta,
   cargar: CargarPeriodo, parametros: Parametros, catalogos: Catalogos, perfiles: Perfiles, registro: Registro,
 };
 

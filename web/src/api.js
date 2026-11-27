@@ -100,6 +100,11 @@ export const api = {
   catalogos: () => solicitar('/catalogos'),
   registro: () => solicitar('/registro'),
 
+  // Publicación (semáforo de controles y firma) y carta de calidad al banco
+  controles: (fecha) => solicitar(`/controles${consulta({ fecha })}`),
+  firmar: (fecha, nombre) => solicitar('/publicaciones', { metodo: 'POST', cuerpo: { fecha, nombre } }),
+  carta: (fecha, banco) => solicitar(`/carta${consulta({ fecha, banco })}`),
+
   // Asistente IA (solo explica resultados ya calculados)
   preguntarIA: (pregunta, fecha) => solicitar('/ia', { metodo: 'POST', cuerpo: { pregunta, fecha } }),
 };
