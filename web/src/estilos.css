@@ -583,3 +583,6 @@ tr:first-child .posicion { background: var(--degradado); color: #fff; }
 .boton-ia-flotante:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(91, 75, 219, .45); }
 @media print { .boton-ia-flotante { display: none; } }
 @media (max-width: 760px) { .boton-ia-flotante { right: .8rem; bottom: .8rem; padding: .65rem .9rem; font-size: .9rem; } }
+
+/* La librería del diagrama usa light-dark() según el modo del sistema: aquí siempre claro */
+.lienzo-diagrama .react-flow { color-scheme: light !important; --xy-background-color: #fbfcfe; }
