@@ -264,3 +264,17 @@ test('API: con una base de comparación elegida, rankings, panel y movimientos d
     assert.equal(mala.status, 400);
   } finally { srv.close(); }
 });
+
+test('API: un mes recién subido es BORRADOR: el Público no lo ve hasta que se firma; analista y administrador sí', async () => {
+  const adm = await entrar('admin', clave('1'));
+  const ana = await entrar('ana', clave('0'));
+  assert.equal((await subir(adm, 'nov.csv', at03([{ Numero_Prestamo: 'N1' }], '20261130'))).status, 200);
+  const publico = await (await pedir('/api/meta')).json();
+  assert.ok(!publico.periodos.some((p) => p.fecha === '20261130'));
+  assert.notEqual(publico.ultimo, '20261130');
+  assert.equal((await pedir('/api/rankings?fecha=20261130&ranking=COMERCIO')).status, 404);
+  const analista = await (await pedir('/api/meta', { cookie: ana })).json();
+  const nov = analista.periodos.find((p) => p.fecha === '20261130');
+  assert.ok(nov && nov.publicado === false);
+  assert.ok(analista.periodos.find((p) => p.fecha === '20260831').publicado, 'los meses del paquete del reto cuentan como publicados');
+});

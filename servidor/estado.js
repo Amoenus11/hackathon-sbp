@@ -4,6 +4,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { readdirSync } from 'node:fs';
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+// Vista del Público: mientras atiende una petición del perfil Público, el estado solo muestra los períodos
+// PUBLICADOS (los del paquete del reto, o los subidos que ya se firmaron en «Preparar publicación»).
+export const vistaPublica = new AsyncLocalStorage();
 import { leerCatalogos } from '../motor/cargar.js';
 import { procesarArchivo, compararPeriodos, mesesEntre, PARAMETROS_INICIALES, ErrorDatos } from '../motor/motor.js';
 import { generar } from '../motor/exportar.js';
@@ -43,6 +48,7 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
   }
 
   const periodos = new Map();
+  const origen = new Map(); // fecha → quién subió el archivo vigente y cuándo («sistema» = paquete del reto)
   let carpetaResultados = null;
   function publicar() {
     if (!carpetaResultados) return;
@@ -61,7 +67,7 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
       const resultado = procesarArchivo(readFileSync(a.ruta, 'utf8'), a.nombre, catalogos, new Date(a.cargado));
       a.fechas = resultado.map((p) => p.fecha);
       for (const p of resultado) {
-        if (!guardado.quitados.includes(p.fecha)) periodos.set(p.fecha, p);
+        if (!guardado.quitados.includes(p.fecha)) { periodos.set(p.fecha, p); origen.set(p.fecha, { usuario: a.usuario, cargado: a.cargado }); }
       }
     }
     publicar();
@@ -72,12 +78,29 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
     renameSync(tmp, rutaEstado);
   }
   recalcular();
+  // Una sola vez: los meses que ya estaban cargados antes de la regla del borrador siguen publicados.
+  if (!guardado.regla_borrador) {
+    const ahora = new Date().toISOString();
+    guardado.publicados = [...periodos.keys()].map((fecha) => ({ fecha, cuando: ahora, motivo: 'cargado antes de la regla del borrador' }));
+    guardado.regla_borrador = true;
+  }
   if (!guardado.registro.length) {
     guardado.registro.push({ cuando: new Date().toISOString(), usuario: 'sistema', perfil: 'sistema', accion: 'inicio', detalle: `Cargados ${periodos.size} períodos del paquete del reto` });
   }
   guardar();
 
-  const lista = () => [...periodos.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  // Publicado = viene del paquete del reto o ya tiene firma. Un mes recién subido es BORRADOR: solo lo ven
+  // analistas y administradores hasta que se firma.
+  // La firma vale para la versión firmada: si después se reemplaza el mes, vuelve a ser borrador.
+  const publicado = (fecha) => {
+    const o = origen.get(fecha);
+    if (!o) return false;
+    if (o.usuario === 'sistema') return true;
+    const marcas = [...(guardado.firmas || []), ...(guardado.publicados || [])].filter((f) => f.fecha === fecha).map((f) => f.cuando);
+    return marcas.some((c) => c >= o.cargado);
+  };
+  const todos = () => [...periodos.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const lista = () => (vistaPublica.getStore() ? todos().filter((p) => publicado(p.fecha)) : todos());
   /** Pares de períodos vecinos que NO son meses seguidos (falta un mes entre ellos). */
   const huecos = () => {
     const l = lista();
@@ -90,8 +113,9 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
     huecos,
     publicarEn(carpeta) { carpetaResultados = carpeta; publicar(); },
     ultimo: () => lista().at(-1) || null,
+    publicado,
     periodo(fecha) {
-      const p = periodos.get(fecha);
+      const p = vistaPublica.getStore() && !publicado(fecha) ? null : periodos.get(fecha);
       if (!p) throw Object.assign(new Error(`No hay datos del período ${fecha}.`), { estado: 404 });
       return p;
     },

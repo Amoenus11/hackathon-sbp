@@ -12,13 +12,20 @@ import './recorrido.css';
 // Cada paso: una ruta, un título, una frase y de 1 a 3 «focos» (selector CSS existente + explicación).
 // Si un selector no aparece en la página, ese foco se muestra solo con su texto.
 export const PASOS_TODOS = [
+  // «/» es distinto según el perfil: el Público ve la portada de tres preguntas; analista y administrador, el Panel.
   {
-    ruta: '/', titulo: 'Tres preguntas, tres respuestas', minimo: 'publico',
-    texto: 'Cartera local válida, los líderes de cada actividad y lo que cambió este mes, explicado solo.',
+    ruta: '/', titulo: 'Tres preguntas, tres respuestas', solo: ['publico'],
+    texto: 'Para el ciudadano: qué es un crédito, quién va ganando y qué tiene de distinto cada banco.',
     focos: [
       { sel: '.po-que', texto: 'Para el público, primero lo esencial: qué es un crédito y qué significa ir primero.' },
       { sel: '.po-pista', texto: '¿Quién va ganando, y por cuánto? Cada banco en su carril. En comercio: casi un empate.' },
       { sel: '.po-desvios', texto: '¿Qué tiene de distinto este banco? Lo que dedica de más o de menos frente al promedio de los 12.' },
+    ],
+  },
+  {
+    ruta: '/', titulo: 'El crédito en un vistazo', solo: ['analista', 'administrador'],
+    texto: 'Cartera local válida, los líderes de cada actividad y lo que cambió este mes, explicado solo.',
+    focos: [
       { sel: '.kpis', texto: 'Las cifras del mes: la cartera local válida, los préstamos que cuentan y cuántas filas quedaron fuera por las reglas E1–E4.' },
       { sel: 'section[aria-labelledby="lideres-titulo"]', texto: 'Quién lidera cada una de las 6 actividades, con su cuota de mercado. Si cambió el líder, se marca.' },
       { sel: 'section[aria-labelledby="cambios-titulo"]', texto: 'Lo que cambió este mes, explicado automáticamente en lenguaje claro: quién sube, a quién supera y por qué.' },
@@ -205,7 +212,7 @@ function useRectangulo(selector, activo, alEncontrar) {
 export default function Recorrido() {
   const { paso, setPaso, sesion, abrirSesion, modalSesion } = useApp();
   // Solo los pasos que este perfil puede ver (el Público no pasa por pantallas de administración)
-  const PASOS = PASOS_TODOS.filter((p) => puede(sesion.perfil, p.minimo));
+  const PASOS = PASOS_TODOS.filter((p) => (p.solo ? p.solo.includes(sesion.perfil) : puede(sesion.perfil, p.minimo)));
   const navegar = useNavigate();
   const activo = paso !== null && paso !== undefined;
   const actual = activo ? PASOS[paso] : null;
@@ -283,7 +290,7 @@ export default function Recorrido() {
   const rect = useRectangulo(focoActual?.sel, activo && fase === 'foco', contarCifras);
 
   if (!actual) return null;
-  const falta = !puede(sesion.perfil, actual.minimo);
+  const falta = actual.solo ? !actual.solo.includes(sesion.perfil) : !puede(sesion.perfil, actual.minimo);
   const mostrarFoco = fase === 'foco' && rect && !apartado && !modalSesion;
 
   // Globo: debajo del elemento si cabe; si no, encima; si no, a un costado; y si el elemento ocupa

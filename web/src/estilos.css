@@ -791,3 +791,21 @@ section[aria-labelledby="usuarios-roles-titulo"] select:has(option[value="analis
 .controles-carga.falla { background: #fdf1f0; color: var(--baja); border: 1px solid #f6cdc8; }
 .controles-carga ul { margin: .4rem 0 0; padding-left: 1rem; font-size: .9rem; }
 .hoja-lecturas { margin: .8rem 0; padding: .7rem .9rem; border-left: 3px solid var(--acento-2); background: #f7f5ff; border-radius: 8px; }
+
+/* Composición de la cartera: leyenda con cifras debajo de la dona */
+.composicion-lista { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .15rem; }
+.composicion-lista li { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: .7rem; padding: .5rem .2rem; border-top: 1px solid #eef1f6; }
+.composicion-punto { width: 12px; height: 12px; border-radius: 50%; }
+.composicion-nombre { display: flex; flex-direction: column; min-width: 0; }
+.composicion-nombre small, .composicion-cifra small { color: var(--texto-suave, #64748b); font-size: .78rem; }
+.composicion-cifra { display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }
+
+/* Reporte: ninguna tabla se sale de la hoja (las columnas se ajustan y el texto largo baja de línea) */
+.hoja-reporte { min-width: 0; overflow-wrap: anywhere; }
+.hoja-seccion { max-width: 100%; overflow-x: auto; }
+.hoja-reporte .tabla { width: 100%; max-width: 100%; table-layout: auto; font-size: .78rem; }
+.hoja-reporte .tabla th { font-size: .64rem; letter-spacing: .03em; white-space: normal; padding: .35rem .4rem; }
+.hoja-reporte .tabla td { padding: .35rem .4rem; white-space: normal; }
+.hoja-reporte .tabla td.numerica { white-space: nowrap; }
+@media (max-width: 760px) { .hoja-reporte { padding: 1.2rem 1rem; } .hoja-reporte .tabla { font-size: .72rem; } }
+@media print { .hoja-seccion { overflow: visible; } }

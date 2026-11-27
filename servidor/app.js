@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import multer from 'multer';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { crearEstado } from './estado.js';
+import { crearEstado, vistaPublica } from './estado.js';
 import { crearSesiones, usuariosDesdeEntorno, PERMISOS, NOMBRE_PERFIL } from './sesion.js';
 import { preguntarIA } from './ia.js';
 import { crearCuentas } from './cuentas.js';
@@ -57,6 +57,8 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.path.startsWith('/api/') && req.get('X-Syntropy') !== '1') {
       return res.status(403).json({ error: 'Petición no permitida.' });
     }
+    // El Público solo ve períodos publicados (ver vistaPublica en estado.js)
+    if (req.perfil === 'publico') return vistaPublica.run(true, next);
     next();
   });
   const permiso = (nombre) => (req, res, next) => (PERMISOS[req.perfil].includes(nombre)
@@ -101,6 +103,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   };
   const resumenPeriodo = (p) => ({
     fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), corta: etiquetaCorta(p.fecha), archivo: p.archivo, cargado: p.cargado, filas_leidas: p.filas_leidas,
+    publicado: estado.publicado(p.fecha),
   });
 
   // --- Sesión

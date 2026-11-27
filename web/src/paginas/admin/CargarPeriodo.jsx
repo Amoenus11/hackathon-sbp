@@ -172,6 +172,7 @@ function ControlesCarga({ fecha }) {
     <div className={`controles-carga ${c.ok ? 'ok' : 'falla'}`} role="status">
       <strong>{c.ok ? `${mes.charAt(0).toUpperCase()}${mes.slice(1)} listo: ${bien} de ${c.controles.length} controles ✓` : `${mes}: ${c.controles.length - bien} de ${c.controles.length} controles fallaron`}</strong>
       {!c.ok && <ul>{c.controles.filter((x) => !x.ok).map((x) => <li key={x.id}>✗ {x.texto} <span className="nota">{x.detalle}</span></li>)}</ul>}
+      <p className="nota">Queda como <b>borrador</b>: analistas y administradores ya lo ven; el público lo verá cuando se firme en <Link to="/publicar">Preparar publicación</Link>.</p>
     </div>
   );
 }

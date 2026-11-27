@@ -68,7 +68,7 @@ export default function Cabecera({ alAbrirMenu, menuAbierto }) {
             <select title={fecha ? `Corte ${fechaCorte(fecha)}` : ''} value={fecha || ''} onChange={(e) => setFecha(e.target.value)} aria-label="Período de los datos">
               {meta.periodos.map((p) => (
                 <option key={p.fecha} value={p.fecha}>
-                  {p.etiqueta}
+                  {p.etiqueta}{p.publicado === false ? ' · borrador' : ''}
                 </option>
               ))}
             </select>

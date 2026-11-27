@@ -6,6 +6,7 @@ import { Carga } from '../componentes/Estados.jsx';
 import { EncabezadoPagina, InsigniaTipo, KPI, NombreBanco, Tarjeta, Insignia } from '../componentes/Comunes.jsx';
 import Grafico from '../componentes/Grafico.jsx';
 import { opcionComposicion, opcionHHI } from '../graficos.js';
+import { COLORES_RANKING } from '../tema.js';
 import { entero, etiquetaPeriodo, monto, montoCorto, pct, tituloRanking, variacion } from '../formato.js';
 
 const ICONOS = { lider: '★', sube: '▲', baja: '▼', saldo: '↗' };
@@ -130,12 +131,30 @@ export function TarjetaCambios({ datos: p }) {
 // «Composición de la cartera»: dona con el saldo del sistema por actividad
 export function TarjetaComposicion({ datos: p }) {
   const { meta } = useApp();
+  // Dona limpia (sin etiquetas que se corten) con el total al centro; debajo, la leyenda con cifras y el líder de cada
+  // actividad, para que la tarjeta no quede vacía y todo se lea sin pasar el ratón.
+  const base = opcionComposicion(p.composicion, (r) => tituloRanking(r, meta));
+  const opcion = {
+    ...base,
+    legend: { show: false },
+    title: { text: montoCorto(p.kpis.cartera_total), subtext: 'cartera total', left: 'center', top: '40%', textStyle: { fontSize: 20, fontWeight: 700, color: '#0f172a' }, subtextStyle: { fontSize: 12, color: '#64748b' } },
+    series: [{ ...base.series[0], center: ['50%', '50%'], radius: ['58%', '84%'], label: { show: false } }],
+  };
   return (
     <Tarjeta titulo="Composición de la cartera" subtitulo="Saldo del sistema por actividad económica" id="composicion">
-      <Grafico
-        opcion={opcionComposicion(p.composicion, (r) => tituloRanking(r, meta))} alto={300}
-        etiqueta="Gráfico de dona con la participación de cada actividad en la cartera local válida"
-      />
+      <Grafico opcion={opcion} alto={240} etiqueta="Gráfico de dona con la participación de cada actividad en la cartera local válida" />
+      <ul className="composicion-lista">
+        {p.composicion.map((c) => {
+          const lider = p.lideres?.find((l) => l.ranking === c.ranking);
+          return (
+            <li key={c.ranking}>
+              <span className="composicion-punto" style={{ background: COLORES_RANKING[c.ranking] }} aria-hidden="true" />
+              <span className="composicion-nombre">{tituloRanking(c.ranking, meta)}{lider && <small>Lidera {lider.banco}</small>}</span>
+              <span className="composicion-cifra"><b>{pct(c.pct, 1)}</b><small>{montoCorto(c.saldo)}</small></span>
+            </li>
+          );
+        })}
+      </ul>
     </Tarjeta>
   );
 }
