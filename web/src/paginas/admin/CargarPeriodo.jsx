@@ -109,11 +109,11 @@ export default function CargarPeriodo() {
               {meta.periodos.length === 0 && <tr><td colSpan={5} className="celda-vacia">Aún no hay períodos.</td></tr>}
               {meta.periodos.map((p) => (
                 <tr key={p.fecha}>
-                  <td className="celda-periodo"><strong>{p.etiqueta}</strong> <span className="nota">· {fechaCorte(p.fecha)}</span></td>
+                  <td className="celda-periodo" title={`Corte ${fechaCorte(p.fecha)}`}><strong>{p.etiqueta}</strong></td>
                   <td className="mono">{p.archivo}</td>
                   <td className="numerica num">{entero(p.filas_leidas)}</td>
                   <td className="celda-periodo">{new Date(p.cargado).toLocaleString('es-PA', { timeZone: 'America/Panama', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
-                  <td><button type="button" className="boton boton-peligro boton-chico" onClick={() => quitar(p.fecha)} disabled={quitando === p.fecha}>Quitar</button></td>
+                  <td><button type="button" className="boton boton-peligro boton-chico" onClick={() => quitar(p.fecha)} disabled={quitando === p.fecha} title="Quitar este período" aria-label={`Quitar ${p.etiqueta}`}>✕</button></td>
                 </tr>
               ))}
             </tbody>
