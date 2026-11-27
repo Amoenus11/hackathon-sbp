@@ -745,3 +745,17 @@ h2 { letter-spacing: -0.012em; }
 .selector-periodo select { max-width: 190px; }
 @media (max-width: 1150px) { .selector-periodo > span { display: none; } .estado-demo-periodo { display: none; } }
 @media (max-width: 900px) { .cabecera-textos span { display: none; } }
+
+/* Menú con grupos plegables */
+.menu-titulo-boton { display: flex; align-items: center; justify-content: space-between; width: calc(100% - 1.2rem); border: 0; background: none; cursor: pointer; padding: .2rem 0; font-family: inherit; }
+.menu-titulo-boton:hover { color: var(--texto); }
+.menu-flecha { font-size: 1rem; transform: rotate(90deg); transition: transform .2s; }
+.menu-titulo-boton.plegado .menu-flecha { transform: rotate(0deg); }
+.menu-grupo { margin-bottom: .7rem; }
+
+/* Asistente: encabezado en una sola línea para dar más altura al chat */
+.asistente-cabecera { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; margin-bottom: .8rem; }
+.asistente-cabecera h1 { font-size: 1.6rem; }
+.asistente-periodo { color: var(--texto-3); }
+.asistente-aviso { margin-left: auto; font-size: .8rem; color: #6b21a8; background: #f5f3ff; border: 1px solid #e9d5ff; border-radius: 999px; padding: .25rem .7rem; cursor: help; }
+.tarjeta-chat { height: calc(100vh - var(--alto-cabecera) - 8.5rem); }

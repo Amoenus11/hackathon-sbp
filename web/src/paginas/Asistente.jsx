@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import TextoIA from '../componentes/TextoIA.jsx';
 import { api } from '../api.js';
 import { useApp } from '../contexto.jsx';
-import { EncabezadoPagina, Tarjeta } from '../componentes/Comunes.jsx';
+import { Tarjeta } from '../componentes/Comunes.jsx';
 import { etiquetaPeriodo } from '../formato.js';
 
 const SUGERENCIAS = [
@@ -41,10 +41,12 @@ export default function Asistente() {
 
   return (
     <>
-      <EncabezadoPagina titulo="Asistente IA" subtitulo={`Pregunta en lenguaje natural sobre los resultados de ${etiquetaPeriodo(fecha, meta)}`} />
-      <div className="aviso-ia" role="note">
-        <strong>La IA explica resultados ya calculados; nunca calcula los rankings.</strong> Los números oficiales salen del motor determinista
-        (mismos archivos → mismos resultados). Verifica cualquier cifra en Rankings o en Calidad de datos.
+      <div className="asistente-cabecera">
+        <h1>Asistente IA</h1>
+        <span className="asistente-periodo">{etiquetaPeriodo(fecha, meta)}</span>
+        <span className="asistente-aviso" title="Los números oficiales salen del motor determinista (mismos archivos → mismos resultados). Verifica cualquier cifra en Rankings o en Calidad de datos.">
+          ✦ Explica resultados ya calculados; nunca calcula los rankings
+        </span>
       </div>
       <Tarjeta className="tarjeta-chat" id="chat">
         <div className="chat" aria-live="polite">

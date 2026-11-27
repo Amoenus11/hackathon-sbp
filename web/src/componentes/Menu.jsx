@@ -1,5 +1,6 @@
 // Menú lateral: solo muestra las secciones que el perfil actual puede usar.
-import { Link, NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '../contexto.jsx';
 import { PERFILES, seccionesDe } from '../permisos.js';
 
@@ -7,14 +8,26 @@ export default function Menu({ abierto, alCerrar }) {
   const { sesion, abrirSesion } = useApp();
   const secciones = seccionesDe(sesion.perfil);
   const grupos = [...new Set(secciones.map((s) => s.grupo))];
+  const ubicacion = useLocation();
+  // Grupos plegables: se recuerda la elección; el grupo de la página actual siempre se ve abierto
+  const [plegados, setPlegados] = useState(() => { try { return JSON.parse(localStorage.getItem('menu-plegados') || '[]'); } catch { return []; } });
+  const alternar = (g) => setPlegados((p) => { const n = p.includes(g) ? p.filter((x) => x !== g) : [...p, g]; localStorage.setItem('menu-plegados', JSON.stringify(n)); return n; });
 
   return (
     <>
       <nav className={`menu ${abierto ? 'menu-abierto' : ''}`} aria-label="Secciones">
         {grupos.map((g) => (
           <div className="menu-grupo" key={g}>
-            <p className="menu-titulo">{g}</p>
-            <ul>
+            {(() => {
+              const actual = secciones.some((s) => s.grupo === g && s.ruta === ubicacion.pathname);
+              const plegado = plegados.includes(g) && !actual;
+              return (
+                <button type="button" className={`menu-titulo menu-titulo-boton ${plegado ? 'plegado' : ''}`} onClick={() => alternar(g)} aria-expanded={!plegado}>
+                  {g}<span className="menu-flecha" aria-hidden="true">›</span>
+                </button>
+              );
+            })()}
+            <ul className={plegados.includes(g) && !secciones.some((s) => s.grupo === g && s.ruta === ubicacion.pathname) ? 'oculto' : ''}>
               {secciones.filter((s) => s.grupo === g).map((s) => (
                 <li key={s.clave}>
                   <NavLink to={s.ruta} end={s.ruta === '/'} className={({ isActive }) => `menu-enlace ${isActive ? 'activo' : ''}`}>
