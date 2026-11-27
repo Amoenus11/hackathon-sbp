@@ -23,7 +23,7 @@ export async function preguntarIA(pregunta, contexto, { comando = 'claude', limi
   const inicio = Date.now();
   try {
     const prompt = `${INSTRUCCIONES}\n\nCONTEXTO (JSON):\n${JSON.stringify(contexto)}\n\nPREGUNTA:\n${pregunta}`;
-    const salida = await ejecutar(comando, ['-p', '--model', 'claude-opus-5-5', '--effort', 'low', '--output-format', 'json', '--no-session-persistence'], prompt, limiteMs);
+    const salida = await ejecutar(comando, ['-p', '--model', 'claude-sonnet-5-5', '--effort', 'medium', '--output-format', 'json', '--no-session-persistence'], prompt, limiteMs);
     const datos = JSON.parse(salida);
     if (datos.is_error) return { disponible: true, respuesta: `El asistente no pudo responder: ${String(datos.result || 'error').slice(0, 200)}` };
     return { disponible: true, respuesta: String(datos.result || '').trim(), segundos: (Date.now() - inicio) / 1000 };

@@ -100,3 +100,9 @@ html.rc-transicion::view-transition-new(root) { animation-duration: .45s; animat
   .rc-titulo-frase { max-width: 30ch; }
 }
 @media print { .rc-titulo, .rc-foco, .rc-globo { display: none !important; } }
+
+/* Globo en modo subtítulo: una franja baja y translúcida, sin tapar lo que se explica */
+.rc-globo-subtitulo { padding: .6rem 1rem !important; display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+  background: rgba(255, 255, 255, .86) !important; backdrop-filter: blur(14px); }
+.rc-globo-subtitulo .rc-globo-eyebrow { margin: 0; }
+.rc-globo-subtitulo p { margin: 0; flex: 1; min-width: 240px; font-size: .95rem; }

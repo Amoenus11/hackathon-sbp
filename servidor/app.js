@@ -438,6 +438,19 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
         rankings: Object.fromEntries(ORDEN_RANKINGS.map((m) => [m, filasRanking(p, m).map((f) => ({ pos: f.posicion, banco: f.banco, saldo: f.saldo_actividad, ponderacion_pct: f.ponderacion_pct, cuota_pct: f.participacion_pct, cambio: f.cambio }))])),
         movimientos_destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 15).map((e) => e.texto) : [],
       };
+      // La pantalla donde está la persona: la IA le da preferencia (por ejemplo, el ranking o el banco que mira)
+      const pantalla = req.body?.pantalla && typeof req.body.pantalla === 'object' ? req.body.pantalla : null;
+      if (pantalla) {
+        contexto.pantalla_actual = { ruta: String(pantalla.ruta || '').slice(0, 80), titulo: String(pantalla.titulo || '').slice(0, 80), filtros: String(pantalla.filtros || '').slice(0, 200) };
+        contexto.instruccion_pantalla = 'Responde primero desde lo que la persona ve en pantalla_actual; usa el resto del contexto solo si hace falta.';
+        const macro = String(pantalla.ranking || '').toUpperCase();
+        if (a && ORDEN_RANKINGS.includes(macro)) {
+          contexto.anatomia_del_ranking_en_pantalla = estado.comparar(a, p).filas.filter((f) => f.ranking === macro).map((f) => ({
+            banco: f.banco, pos: f.posicion_actual, cambio: f.cambio, nuevos: aTexto(f.anatomia.nuevos), n_nuevos: f.anatomia.n_nuevos,
+            terminados: aTexto(f.anatomia.terminados), n_terminados: f.anatomia.n_terminados, amortizacion: aTexto(f.anatomia.variacion),
+          }));
+        }
+      }
       const r = await preguntarIA(pregunta, contexto, { comando: entorno.CLAUDE_COMANDO || 'claude', asistenteUrl: entorno.ASISTENTE_URL });
       registrar(req, 'consulta_ia', pregunta.slice(0, 120));
       res.json(r);

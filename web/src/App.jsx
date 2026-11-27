@@ -1,8 +1,9 @@
 // Estructura general: cabecera, franja de «datos ficticios», menú lateral según el perfil,
 // contenido de cada página y pie. Cada ruta verifica el perfil antes de mostrarse.
 import { useEffect, useState } from 'react';
-import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import Recorrido from './componentes/Recorrido.jsx';
+import ChatIA from './componentes/ChatIA.jsx';
 import { useApp } from './contexto.jsx';
 import { SECCIONES, puede } from './permisos.js';
 import Cabecera from './componentes/Cabecera.jsx';
@@ -84,11 +85,7 @@ export default function App() {
       </div>
       <Pie />
       <Recorrido />
-      {ubicacion.pathname !== '/asistente' && ubicacion.pathname !== '/pitch' && (
-        <Link to="/asistente" className="boton-ia-flotante" aria-label="Abrir el asistente IA">
-          <span aria-hidden="true">✦</span> Pregúntale a la IA
-        </Link>
-      )}
+      <ChatIA />
       {modalSesion && <ModalSesion />}
     </div>
   );

@@ -53,7 +53,7 @@
 /* mini embudo de exclusiones */
 .met-embudo { list-style: none; margin: .2rem 0 0; padding: 0; display: grid; gap: .45rem; }
 .met-embudo li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nombre n" "barra barra"; gap: .15rem .5rem; align-items: center; }
-.met-embudo-nombre { grid-area: nombre; font-size: .78rem; color: var(--met-tinta-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.met-embudo-nombre { grid-area: nombre; font-size: .78rem; color: var(--met-tinta-2); line-height: 1.25; overflow-wrap: anywhere; }
 .met-embudo-nombre b { color: #b45309; font-weight: 800; margin-right: .15rem; }
 .met-embudo-n { grid-area: n; font-size: .8rem; font-weight: 700; color: var(--met-tinta); }
 .met-embudo-barra { grid-area: barra; height: 6px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }

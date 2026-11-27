@@ -106,7 +106,7 @@ export const api = {
   carta: (fecha, banco) => solicitar(`/carta${consulta({ fecha, banco })}`),
 
   // Asistente IA (solo explica resultados ya calculados)
-  preguntarIA: (pregunta, fecha) => solicitar('/ia', { metodo: 'POST', cuerpo: { pregunta, fecha } }),
+  preguntarIA: (pregunta, fecha, pantalla) => solicitar('/ia', { metodo: 'POST', cuerpo: { pregunta, fecha, pantalla } }),
 };
 
 // Enlace de descarga directa de un CSV (sin fecha = todos los períodos).

@@ -295,8 +295,10 @@ export default function Recorrido() {
       } else if (rect.left - MARGEN >= ancho + 16) {
         globo = { top: Math.max(120, Math.min(rect.top + 24, LIMITE_ABAJO - ALTO_GLOBO)), left: rect.left - MARGEN - ancho, ancho };
       } else {
-        const abajoVisible = Math.min(fondo, LIMITE_ABAJO);
-        globo = { top: Math.max(120, abajoVisible - ALTO_GLOBO - 24), left: Math.max(16, Math.min(rect.left + rect.width, tam.w - 16) - ancho - 24), ancho };
+        // El elemento ocupa casi toda la pantalla: el globo se vuelve un subtítulo angosto junto a la barra
+        // inferior (como en un keynote), para tapar lo mínimo.
+        const anchoSub = Math.min(760, tam.w - 32);
+        globo = { top: LIMITE_ABAJO - 96, left: (tam.w - anchoSub) / 2, ancho: anchoSub, subtitulo: true };
       }
     } else {
       globo = { top: Math.max(120, tam.h * 0.3), left: (tam.w - ancho) / 2, ancho };
@@ -327,7 +329,7 @@ export default function Recorrido() {
       {/* 3. Globo de explicación */}
       {globo && (
         <div
-          className="rc-capa rc-globo" key={`${paso}-${foco}`} role="status" aria-live="polite"
+          className={`rc-capa rc-globo${globo.subtitulo ? ' rc-globo-subtitulo' : ''}`} key={`${paso}-${foco}`} role="status" aria-live="polite"
           style={{ top: globo.top, left: globo.left, width: globo.ancho }}
         >
           <span className="rc-globo-eyebrow">Paso {paso + 1} · {foco + 1} de {focos.length}</span>
