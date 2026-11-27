@@ -32,7 +32,7 @@ Abre **http://localhost:3000**. Al arrancar, el sistema calcula los 3 períodos 
 | Comando | Qué hace |
 | --- | --- |
 | `npm start` | Compila la web (React) y arranca el servidor (Node) en el puerto 3000 |
-| `npm test` | Ejecuta las 17 pruebas automáticas (motor, API y sesiones) |
+| `npm test` | Ejecuta las 36 pruebas automáticas (motor, API y sesiones) |
 | `npm run exportar` | Recalcula todo desde `datos/reto/` y escribe las 5 exportaciones en `exportaciones/` |
 | `npm run configurar -- agregar <usuario> <analista\|administrador>` | Agrega un usuario |
 | `npm run dev:api` + `npm run dev:web` | Modo desarrollo (recarga en caliente; web en :5173) |
@@ -206,6 +206,13 @@ Si no está disponible, todo lo demás (incluidas las explicaciones automáticas
 | Sin base de datos | 82 500 filas se procesan en ~2 s; recalcular siempre desde los archivos garantiza reproducibilidad. |
 | Permisos en el servidor | Un perfil no puede saltarse sus límites escribiendo la URL. |
 | Explicaciones deterministas + IA opcional | Las explicaciones automáticas no dependen de la IA; la IA solo aporta conversación. |
+
+## 8.1 Más allá de lo pedido
+- **Descarga a tu medida** (pedido del stakeholder): cortes, actividades, bancos, clasificación y campos; resumen o detalle; CSV o Excel; sin datos personales.
+- **Anatomía del cambio** y **R4 puente entre meses**; **Semáforo de publicación** con firma; **Carta al banco**.
+- **Versión producto** (https://demo.syntropy.com.pa): empieza vacía; la primera cuenta administra y crea las del equipo; verificación en 2 pasos (simulada); carga de CSV o Excel con bitácora de conversión.
+- **Pitch** (/pitch) y **presentación guiada**; asistente IA que responde según la pantalla.
+- Documentos: `docs/cumplimiento.md` (rúbrica 100/100), `docs/guia-jurado.md`, `docs/stakeholders.md`, `docs/api.md`, `docs/api-producto.md`.
 
 ## 9. Estructura
 
