@@ -16,6 +16,7 @@ const ACCIONES = {
   sesion_fallida: 'Intento de sesión fallido',
   exportar: 'Descargó un CSV',
   inicio: 'Arranque del sistema',
+  tu_lectura: 'Escribió «Tu lectura»',
   actualizar_periodo: 'Actualizó un período',
   carga_fallida: 'Intento de carga fallido',
   consulta_ia: 'Consultó al asistente IA',

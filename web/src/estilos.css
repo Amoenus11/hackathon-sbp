@@ -784,3 +784,10 @@ section[aria-labelledby="usuarios-roles-titulo"] select:has(option[value="analis
 .marca-texto { cursor: pointer; position: relative; }
 .marca-equipo { display: inline-block; margin-left: .3rem; font-size: .7em; color: var(--acento-2); -webkit-text-fill-color: var(--acento-2); opacity: 0; transform: scale(.6); transition: opacity .2s, transform .2s; }
 .cabecera-marca:hover .marca-equipo, .marca-texto:focus-visible .marca-equipo { opacity: 1; transform: scale(1) rotate(20deg); }
+
+/* Idea 4: resultado de la carga en una línea */
+.controles-carga { margin: 0 0 .8rem; padding: .7rem 1rem; border-radius: 14px; font-size: 1.05rem; }
+.controles-carga.ok { background: #effaf2; color: #14532d; border: 1px solid #bfe7cb; }
+.controles-carga.falla { background: #fdf1f0; color: var(--baja); border: 1px solid #f6cdc8; }
+.controles-carga ul { margin: .4rem 0 0; padding-left: 1rem; font-size: .9rem; }
+.hoja-lecturas { margin: .8rem 0; padding: .7rem .9rem; border-left: 3px solid var(--acento-2); background: #f7f5ff; border-radius: 8px; }

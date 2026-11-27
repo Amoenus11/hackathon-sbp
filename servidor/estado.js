@@ -165,6 +165,13 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
       guardar();
     },
     registro: () => [...guardado.registro].reverse(),
+    lecturas: (desde, hasta) => (guardado.lecturas || []).filter((l) => (!desde || l.desde === desde) && (!hasta || l.hasta === hasta)),
+    guardarLectura(l) {
+      const clave = (x) => `${x.desde}|${x.hasta}|${x.ranking}|${x.codigo_banco}`;
+      guardado.lecturas = (guardado.lecturas || []).filter((x) => clave(x) !== clave(l));
+      if (l.texto) guardado.lecturas.push(l);
+      guardar();
+    },
     firmas: (fecha) => (guardado.firmas || []).filter((f) => f.fecha === fecha).reverse(),
     firmar(firma) { guardado.firmas = [...(guardado.firmas || []), firma]; guardar(); },
   };

@@ -1,5 +1,5 @@
 // Cargar un nuevo corte AT03: se procesa solo, se recalculan los rankings y se detectan los movimientos.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import { useApp } from '../../contexto.jsx';
@@ -123,6 +123,7 @@ export default function CargarPeriodo() {
 
       {resultado && (
         <Tarjeta titulo="Resultado de la carga" className="tarjeta-exito" id="resultado">
+          {resultado.procesados?.length > 0 && <ControlesCarga fecha={resultado.procesados.at(-1).fecha} />}
           <ul className="lista-simple">
             {resultado.procesados?.map((p) => (
               <li key={p.fecha}>
@@ -156,5 +157,21 @@ export default function CargarPeriodo() {
         <HistorialCargas />
       </Tarjeta>
     </>
+  );
+}
+
+// Idea 4: una sola línea que dice si el mes entró bien («Septiembre listo: 11 de 11 controles ✓»)
+function ControlesCarga({ fecha }) {
+  const { meta } = useApp();
+  const [c, setC] = useState(null);
+  useEffect(() => { api.controles(fecha).then(setC).catch(() => setC(null)); }, [fecha]);
+  if (!c) return null;
+  const bien = c.controles.filter((x) => x.ok).length;
+  const mes = etiquetaPeriodo(fecha, meta);
+  return (
+    <div className={`controles-carga ${c.ok ? 'ok' : 'falla'}`} role="status">
+      <strong>{c.ok ? `${mes.charAt(0).toUpperCase()}${mes.slice(1)} listo: ${bien} de ${c.controles.length} controles ✓` : `${mes}: ${c.controles.length - bien} de ${c.controles.length} controles fallaron`}</strong>
+      {!c.ok && <ul>{c.controles.filter((x) => !x.ok).map((x) => <li key={x.id}>✗ {x.texto} <span className="nota">{x.detalle}</span></li>)}</ul>}
+    </div>
   );
 }

@@ -526,6 +526,22 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     registrar(req, 'cambiar_perfil', `${usuario}: ${NOMBRE_PERFIL[actual.perfil]} → ${NOMBRE_PERFIL[perfil]}`);
     res.json({ usuario, perfil });
   });
+  // --- «Tu lectura»: nota interna del analista sobre un movimiento (nunca pública)
+  app.get('/api/lecturas', permiso('comparar'), (req, res) => res.json(estado.lecturas(req.query.desde ? String(req.query.desde) : null, req.query.hasta ? String(req.query.hasta) : null)));
+  app.put('/api/lecturas', permiso('comparar'), (req, res) => {
+    const b = req.body || {};
+    const desde = String(b.desde || ''); const hasta = String(b.hasta || '');
+    estado.periodo(desde); estado.periodo(hasta);
+    const ranking = String(b.ranking || '').toUpperCase();
+    if (!ORDEN_RANKINGS.includes(ranking)) throw new ErrorDatos('Ranking desconocido.');
+    const codigo = String(b.codigo_banco || '');
+    if (!estado.catalogos.bancoPorCodigo.has(codigo)) throw new ErrorDatos('Banco desconocido.');
+    const texto = String(b.texto || '').trim().slice(0, 600);
+    const lectura = { desde, hasta, ranking, codigo_banco: codigo, texto, usuario: req.usuario, cuando: new Date().toISOString() };
+    estado.guardarLectura(lectura);
+    registrar(req, 'tu_lectura', `${ranking} · ${estado.catalogos.bancoPorCodigo.get(codigo).nombre} · ${texto ? texto.slice(0, 80) : '(nota borrada)'}`);
+    res.json(lectura);
+  });
   app.get('/api/registro', permiso('registro'), (req, res) => res.json(estado.registro()));
   app.get('/api/cargas', permiso('calidad'), (req, res) => res.json(estado.cargas()));
 

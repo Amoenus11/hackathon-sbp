@@ -127,3 +127,8 @@ Público puede descargar `rankings` y `desglose`; analista y administrador, todo
 `POST /api/ia` `{ "pregunta": "…", "fecha": "20260930" }` → `{ "disponible": true, "respuesta": "texto", "segundos": 12.3 }`.
 La IA solo recibe resultados ya calculados (rankings, movimientos, calidad) y explica; **nunca calcula rankings**.
 Si Claude Code no está instalado o no ha iniciado sesión: `{ "disponible": false, "respuesta": "…" }`.
+
+## «Tu lectura» (analista y administrador; nota INTERNA, nunca pública — lámina 9)
+- `GET /api/lecturas?desde=&hasta=` → `[{ desde, hasta, ranking, codigo_banco, texto, usuario, cuando }]`
+- `PUT /api/lecturas` `{ desde, hasta, ranking, codigo_banco, texto }` → la lectura guardada (texto vacío = se borra la nota).
+  Queda en el Registro de operaciones. Aparece en el reporte del analista; nunca en la vista del Público.

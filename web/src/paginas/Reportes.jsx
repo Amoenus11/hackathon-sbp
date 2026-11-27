@@ -48,9 +48,11 @@ export default function Reportes() {
         quiere('movimientos') && comparar && comparar < periodo ? api.movimientos({ desde: comparar, hasta: periodo }) : null,
         quiere('calidad') ? api.calidad(periodo) : null,
       ]);
+      // «Tu lectura»: notas internas del analista (este reporte es para analistas y administradores, nunca público)
+      const lecturas = movs ? await api.lecturas(comparar, periodo).catch(() => []) : [];
       setReporte({
         periodo, comparar: comparar && comparar < periodo ? comparar : null, rankings: [...rankings], bancos: [...bancos],
-        secciones: [...secciones], panel, tablas, desgloses, movs, calidad, generado: new Date().toISOString(),
+        secciones: [...secciones], panel, tablas, desgloses, movs, calidad, lecturas, generado: new Date().toISOString(),
       });
     } catch (e) {
       setError(e);
@@ -238,6 +240,16 @@ export function HojaReporte({ r, meta, sesion }) {
         <section className="hoja-seccion">
           <h3>Movimientos de posición · {etiquetaPeriodo(r.movs.desde, meta)} → {etiquetaPeriodo(r.movs.hasta, meta)}</h3>
           {r.movs.explicaciones.length > 0 && <ul className="hoja-lista">{r.movs.explicaciones.map((t, i) => <li key={i}>{t}</li>)}</ul>}
+          {r.lecturas?.length > 0 && (
+            <div className="hoja-lecturas">
+              <h4>Lectura del analista <span className="nota">(nota interna; no es opinión formal de la SBP)</span></h4>
+              <ul className="hoja-lista">
+                {r.lecturas.filter((l) => r.rankings.includes(l.ranking) && filtraBanco(l.codigo_banco)).map((l) => (
+                  <li key={`${l.ranking}-${l.codigo_banco}`}><strong>{titulo(l.ranking)} · {meta.bancos.find((b) => b.codigo === l.codigo_banco)?.nombre}:</strong> {l.texto} <span className="nota">— {l.usuario}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
           <table className="tabla tabla-compacta">
             <thead><tr><th scope="col">Ranking</th><th scope="col">Banco</th><th scope="col" className="numerica">Antes</th><th scope="col" className="numerica">Ahora</th><th scope="col" className="numerica">Var. saldo</th><th scope="col">Motivo</th></tr></thead>
             <tbody>
