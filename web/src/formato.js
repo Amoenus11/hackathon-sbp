@@ -23,7 +23,7 @@ export function montoCorto(texto) {
   const n = Number(texto);
   if (!Number.isFinite(n)) return '—';
   const abs = Math.abs(n);
-  if (abs >= 1e9) return `${(n / 1e9).toLocaleString('es-PA', { maximumFractionDigits: 2 })} mil M`;
+  if (abs >= 1e9) return `${(n / 1e6).toLocaleString('es-PA', { maximumFractionDigits: 0 })} M`;
   if (abs >= 1e6) return `${(n / 1e6).toLocaleString('es-PA', { maximumFractionDigits: 1 })} M`;
   if (abs >= 1e3) return `${(n / 1e3).toLocaleString('es-PA', { maximumFractionDigits: 1 })} mil`;
   return n.toLocaleString('es-PA', { maximumFractionDigits: 2 });

@@ -15,10 +15,21 @@ export function huellaClave(clave, sal = randomBytes(16).toString('hex')) {
 }
 
 function claveCorrecta(clave, huella) {
-  const [tipo, sal, hash] = String(huella).split('$');
-  if (tipo !== 'scrypt' || !sal || !hash) return false;
-  const calculada = scryptSync(clave, sal, 32);
-  const guardada = Buffer.from(hash, 'hex');
+  const partes = String(huella).split('$');
+  if (partes[0] !== 'scrypt') return false;
+  let calculada;
+  let guardada;
+  if (partes.length === 6) {
+    // Huella de la primera versión (Python): scrypt$N$r$p$sal$hash en base64url. Así las contraseñas
+    // que el equipo ya creó siguen sirviendo.
+    const [, n, r, p, sal, hash] = partes;
+    guardada = Buffer.from(hash, 'base64url');
+    calculada = scryptSync(clave, Buffer.from(sal, 'base64url'), guardada.length, { N: Number(n), r: Number(r), p: Number(p), maxmem: 128 * 1024 * 1024 });
+  } else if (partes.length === 3) {
+    const [, sal, hash] = partes;
+    guardada = Buffer.from(hash, 'hex');
+    calculada = scryptSync(clave, sal, 32);
+  } else return false;
   return guardada.length === calculada.length && timingSafeEqual(calculada, guardada);
 }
 

@@ -32,20 +32,41 @@ export function crearCuentas(carpetaLocal, definicion, urlPublica) {
     return `${urlPublica}/revelar#${token}`;
   }
 
-  // CUENTAS="admin:administrador,gui:administrador,…": crea las que falten y muestra sus enlaces en el registro del contenedor
+  // CUENTAS="admin:administrador,gui:administrador,…": crea las que falten (y muestra sus enlaces en el
+  // registro del contenedor) y mantiene el perfil de cada una según esta definición.
   const enlaces = [];
+  let cambios = false;
   for (const par of String(definicion || '').split(',').map((s) => s.trim()).filter(Boolean)) {
     const [usuario, perfil] = par.split(':');
-    if (!cuentas.find((c) => c.usuario === usuario)) {
+    const existente = cuentas.find((c) => c.usuario === usuario);
+    if (!existente) {
       const c = { usuario, perfil };
       enlaces.push(`${usuario.padEnd(14)} ${nuevoEnlace(c)}`);
       cuentas.push(c);
+      cambios = true;
+    } else if (existente.perfil !== perfil) {
+      existente.perfil = perfil;
+      cambios = true;
     }
   }
-  if (enlaces.length) {
-    guardar();
-    console.log(`\n  Enlaces de un solo uso (48 h):\n  ${enlaces.join('\n  ')}\n`);
+  // importar.json (una sola vez): contraseñas que el equipo ya había creado, solo como huella.
+  const rutaImportar = join(carpetaLocal, 'importar.json');
+  if (existsSync(rutaImportar)) {
+    const importadas = [];
+    for (const { usuario, huella: h } of JSON.parse(readFileSync(rutaImportar, 'utf8')) || []) {
+      const c = cuentas.find((x) => x.usuario === usuario);
+      if (c && typeof h === 'string' && h.startsWith('scrypt$')) {
+        c.huella = h;
+        delete c.enlace; // su enlace nuevo ya no hace falta: sigue con su contraseña de siempre
+        importadas.push(usuario);
+      }
+    }
+    renameSync(rutaImportar, join(carpetaLocal, `importado-${Date.now()}.json`));
+    console.log(`  Contraseñas conservadas de la primera versión: ${importadas.join(', ') || 'ninguna'}`);
+    cambios = true;
   }
+  if (cambios) guardar();
+  if (enlaces.length) console.log(`\n  Enlaces de un solo uso (48 h):\n  ${enlaces.join('\n  ')}\n`);
 
   return {
     lista: () => cuentas.map(({ usuario, perfil, huella: h }) => ({ usuario, perfil, huella: h })),

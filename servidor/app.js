@@ -116,6 +116,13 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     res.json({ usuario: r.usuario, clave: r.clave });
   });
 
+  // --- Terminal de Nathalia: Caddy pregunta aquí (forward_auth) antes de dejar pasar a /terminal/
+  const usuariosTerminal = String(entorno.TERMINAL_USUARIOS || '').split(',').map((u) => u.trim()).filter(Boolean);
+  app.get('/api/terminal/autorizar', (req, res) => {
+    if (req.usuario && usuariosTerminal.includes(req.usuario)) return res.status(200).end();
+    res.status(401).end();
+  });
+
   // --- Metadatos
   app.get('/api/meta', (req, res) => {
     const c = estado.catalogos;

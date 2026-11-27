@@ -13,6 +13,6 @@ app.listen(puerto, anfitrion, () => {
   const periodos = estado.lista().map((p) => `${p.fecha} (${p.universo} válidas de ${p.filas_leidas})`).join(', ');
   console.log(`\n  Syntropy · Observatorio de Crédito Bancario`);
   console.log(`  Períodos calculados en ${Date.now() - inicio} ms: ${periodos}`);
-  if (!usuariosDesdeEntorno(entorno).size) console.log('  Aviso: no hay usuarios de analista ni administrador. Ejecuta «npm run configurar».');
+  if (!usuariosDesdeEntorno(entorno).size && !entorno.CUENTAS) console.log('  Aviso: no hay usuarios de analista ni administrador. Ejecuta «npm run configurar».');
   console.log(`  Abre http://localhost:${puerto}\n`);
 });

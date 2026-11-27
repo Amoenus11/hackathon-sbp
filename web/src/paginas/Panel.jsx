@@ -42,7 +42,7 @@ export default function Panel() {
                   ayuda="Duplicados, destino extranjero, saldo no positivo y actividad no catalogada"
                 />
                 {p.indicadores?.morosidad_pct != null && (
-                  <KPI titulo="Morosidad" valor={pct(p.indicadores.morosidad_pct, 2)} detalle="saldo vencido / saldo (indicador adicional)" />
+                  <KPI titulo="Cartera con atraso" valor={pct(p.indicadores.morosidad_pct, 2)} detalle="saldo con días de mora / saldo válido (indicador adicional)" />
                 )}
               </div>
 
