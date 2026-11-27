@@ -1,6 +1,7 @@
+node_modules/
+dist/
+.env
+datos-locales/
+exportaciones/
 __pycache__/
 *.pyc
-.venv/
-*.env
-.env*
-/datos-locales/

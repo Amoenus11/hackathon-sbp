@@ -1,0 +1,32 @@
+{
+  "name": "syntropy-rankings-sbp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Syntropy · Plataforma interactiva de rankings de crédito y análisis bancario (Hackathon SBP 2026)",
+  "engines": { "node": ">=20.19" },
+  "scripts": {
+    "configurar": "node servidor/configurar.js",
+    "build": "vite build",
+    "start": "vite build && node servidor/index.js",
+    "servidor": "node servidor/index.js",
+    "dev:web": "vite",
+    "dev:api": "node --watch servidor/index.js",
+    "test": "node --test pruebas/",
+    "exportar": "node motor/cli.js datos/reto exportaciones"
+  },
+  "dependencies": {
+    "@xyflow/react": "13.0.3",
+    "echarts": "6.1.0",
+    "echarts-for-react": "3.1.0",
+    "express": "5.3.0",
+    "multer": "2.5.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router-dom": "7.18.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.3.0",
+    "vite": "8.4.0"
+  }
+}
