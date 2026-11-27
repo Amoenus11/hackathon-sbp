@@ -114,25 +114,30 @@ function Portada() {
   );
 }
 
+// El problema, en palabras de cualquiera: quién sufre, por qué es difícil y qué está en juego
 function Problema({ cifras }) {
   const { bancos, rankings, periodos, filasTotales } = cifras;
-  const dimensiones = bancos && rankings && periodos;
   return (
     <div className="pt-contenido">
-      <p className="pt-antetitulo">Día 5 del mes · 7:40 a. m.</p>
-      <h2 className="pt-titular">Llegan {filasTotales ? entero(filasTotales) : 'miles de'} préstamos. Excel convierte el 07 en 7.</h2>
-      <p className="pt-pie-cifra">Y del otro lado, el público: <b>los datos son públicos, pero no son comprensibles.</b></p>
+      <p className="pt-antetitulo">El problema, hoy</p>
+      <h2 className="pt-titular">
+        Cada mes, los bancos envían a la Superintendencia la lista de todos sus préstamos. Alguien tiene que ordenarla a mano.
+      </h2>
+      <p className="pt-pie-cifra">
+        {filasTotales && periodos ? `Solo en ${periodos} meses son ${entero(filasTotales)} préstamos. ` : ''}
+        Y quien quiere saber qué banco presta más solo encuentra Excel y PDF: <b>los datos son públicos, pero no son comprensibles.</b>
+      </p>
       <div className="pt-trio">
         <div className="pt-dato">
-          <strong>A mano</strong>
-          <span>duplicados, extranjeros, saldos negativos y tarjetas que hay que reclasificar</span>
+          <strong>Mucho trabajo a mano</strong>
+          <span>quitar préstamos repetidos, los que se usan fuera del país y los que ya no deben nada, uno por uno</span>
         </div>
         <div className="pt-dato">
-          <strong>{dimensiones ? `${bancos} × ${rankings} × ${periodos}` : 'Bancos × actividades × meses'}</strong>
-          <span>{dimensiones ? `${bancos} bancos × ${rankings} actividades × ${periodos} meses que cuadrar al centavo` : 'que cuadrar al centavo'}</span>
+          <strong>Fácil equivocarse</strong>
+          <span>{bancos && rankings ? `${bancos} bancos en ${rankings} actividades: ` : ''}Excel cambia códigos como «07» por «7», y una tarjeta mal clasificada mueve todo un ranking</span>
         </div>
         <div className="pt-dato">
-          <strong>Un solo miedo</strong>
+          <strong>Un error cuesta caro</strong>
           <span>una cifra pública equivocada no se corrige: <b>se recuerda</b></span>
         </div>
       </div>
