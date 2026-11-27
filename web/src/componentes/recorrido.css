@@ -90,7 +90,7 @@ html.rc-transicion::view-transition-old(root),
 html.rc-transicion::view-transition-new(root) { animation-duration: .45s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
 
 /* ---------- Accesibilidad e impresión */
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) and (max-width: 1px) { /* la presentación siempre se anima (pedido del equipo) */
   .rc-titulo, .rc-titulo-contenido, .rc-titulo-frase, .rc-foco, .rc-foco::before, .rc-foco::after, .rc-globo, .rc-barra, .rc-segmento {
     animation: none !important; transition: none !important;
   }

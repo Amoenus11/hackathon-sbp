@@ -362,7 +362,7 @@
 }
 
 /* --------------------------------------------------------------- menos movimiento */
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) and (max-width: 1px) { /* la presentación siempre se anima (pedido del equipo) */
   .pt-diapo { animation: none; }
   .pt-punto { animation: none; transform: none; opacity: 1; }
   .pt-progreso button, .pt-boton { transition: none; }

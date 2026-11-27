@@ -114,7 +114,7 @@ const DURACION_TITULO = 1700; // ms que la tarjeta de título queda a la vista
 const DURACION_SALIDA = 620;
 const ESPERA_ELEMENTO = 3500; // las páginas cargan datos: se espera un poco a que aparezca el elemento
 
-const prefiereQuieto = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const prefiereQuieto = () => false; // la presentación siempre se anima (pedido del equipo)
 const dosCifras = (n) => String(n).padStart(2, '0');
 
 // Cambia de página con un fundido cruzado si el navegador lo permite (View Transitions).
