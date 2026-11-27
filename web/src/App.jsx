@@ -26,6 +26,7 @@ import Reportes from './paginas/Reportes.jsx';
 import Asistente from './paginas/Asistente.jsx';
 import Equipo from './paginas/Equipo.jsx';
 import Pitch from './paginas/Pitch.jsx';
+import Portada from './paginas/Portada.jsx';
 import Publicar from './paginas/Publicar.jsx';
 import Carta from './paginas/Carta.jsx';
 import Extraccion from './paginas/Extraccion.jsx';
@@ -57,7 +58,8 @@ function Protegida({ seccion }) {
       </EstadoVacio>
     );
   }
-  const Pagina = PAGINAS[seccion.clave];
+  // Idea 0: el Público ve la portada de tres preguntas; analista y administrador, el Panel de siempre
+  const Pagina = seccion.clave === 'panel' && sesion.perfil === 'publico' ? Portada : PAGINAS[seccion.clave];
   if (meta?.modo === 'producto' && seccion.clave === 'panel') return <><Saludo /><Pagina /></>;
   return <Pagina />;
 }

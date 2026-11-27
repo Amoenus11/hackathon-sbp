@@ -83,28 +83,9 @@ export default function Panel() {
                 </div>
               </Tarjeta>
 
-              <Tarjeta titulo="Lo que cambió este mes" subtitulo="Explicaciones automáticas a partir de las reglas configuradas" id="cambios">
-                {p.destacados.length === 0 ? (
-                  <p className="nota">{p.fecha_anterior ? 'No hubo movimientos significativos.' : 'Es el primer período cargado: aún no hay con qué comparar.'}</p>
-                ) : (
-                  <ul className="destacados">
-                    {p.destacados.map((d, i) => (
-                      <li key={i} className={`destacado destacado-${d.tipo}`}>
-                        <span className="destacado-icono" aria-hidden="true">{ICONOS[d.tipo] || '•'}</span>
-                        <span>{d.texto}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {p.fecha_anterior && <Link to="/comparar" className="enlace-mas">Ver todos los movimientos →</Link>}
-              </Tarjeta>
+              <TarjetaCambios datos={p} />
 
-              <Tarjeta titulo="Composición de la cartera" subtitulo="Saldo del sistema por actividad económica" id="composicion">
-                <Grafico
-                  opcion={opcionComposicion(p.composicion, titulo)} alto={300}
-                  etiqueta="Gráfico de dona con la participación de cada actividad en la cartera local válida"
-                />
-              </Tarjeta>
+              <TarjetaComposicion datos={p} />
 
               {p.indicadores?.concentracion?.length > 0 && (
                 <Tarjeta
@@ -122,5 +103,39 @@ export default function Panel() {
         }}
       </Carga>
     </>
+  );
+}
+
+// «Lo que cambió este mes»: explicaciones automáticas (se usa en el Panel y en la portada pública)
+export function TarjetaCambios({ datos: p }) {
+  return (
+    <Tarjeta titulo="Lo que cambió este mes" subtitulo="Explicaciones automáticas a partir de las reglas configuradas" id="cambios">
+      {p.destacados.length === 0 ? (
+        <p className="nota">{p.fecha_anterior ? 'No hubo movimientos significativos.' : 'Es el primer período cargado: aún no hay con qué comparar.'}</p>
+      ) : (
+        <ul className="destacados">
+          {p.destacados.map((d, i) => (
+            <li key={i} className={`destacado destacado-${d.tipo}`}>
+              <span className="destacado-icono" aria-hidden="true">{ICONOS[d.tipo] || '•'}</span>
+              <span>{d.texto}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {p.fecha_anterior && <Link to="/comparar" className="enlace-mas">Ver todos los movimientos →</Link>}
+    </Tarjeta>
+  );
+}
+
+// «Composición de la cartera»: dona con el saldo del sistema por actividad
+export function TarjetaComposicion({ datos: p }) {
+  const { meta } = useApp();
+  return (
+    <Tarjeta titulo="Composición de la cartera" subtitulo="Saldo del sistema por actividad económica" id="composicion">
+      <Grafico
+        opcion={opcionComposicion(p.composicion, (r) => tituloRanking(r, meta))} alto={300}
+        etiqueta="Gráfico de dona con la participación de cada actividad en la cartera local válida"
+      />
+    </Tarjeta>
   );
 }

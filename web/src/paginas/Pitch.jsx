@@ -45,8 +45,14 @@ function useCifras() {
     })();
     return () => { vigente = false; };
   }, [ultimo, meta]);
+  const [puente, setPuente] = useState(null);
+  useEffect(() => {
+    if (!ultimo) return;
+    api.calidad(ultimo).then((c) => setPuente(c.reconciliaciones?.find((r) => r.id === 'R4')?.puente || null)).catch(() => {});
+  }, [ultimo]);
   const periodos = meta?.periodos || [];
   return {
+    puente,
     pregunta,
     panel,
     filasTotales: periodos.length ? periodos.reduce((s, p) => s + (Number(p.filas_leidas) || 0), 0) : null,
@@ -112,6 +118,7 @@ function Problema({ cifras }) {
     <div className="pt-contenido">
       <p className="pt-antetitulo">Día 5 del mes · 7:40 a. m.</p>
       <h2 className="pt-titular">Llegan {filasTotales ? entero(filasTotales) : 'miles de'} préstamos. Excel convierte el 07 en 7.</h2>
+      <p className="pt-pie-cifra">Y del otro lado, el público: <b>los datos son públicos, pero no son comprensibles.</b></p>
       <div className="pt-trio">
         <div className="pt-dato">
           <strong>A mano</strong>
@@ -163,6 +170,30 @@ function Solucion() {
   );
 }
 
+// Tres personas, tres preguntas (lámina 6)
+function TresPersonas() {
+  const personas = [
+    { quien: 'Público', pregunta: '¿Qué banco tiene más crédito en lo que me importa?', icono: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-7 8-7s8 3 8 7" /></> },
+    { quien: 'Analista', pregunta: '¿Qué cambió y puedo respaldarlo?', icono: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></> },
+    { quien: 'Administración', pregunta: '¿El mes nuevo entró bien?', icono: <><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z" /><path d="M8.5 12l2.5 2.5 4.5-5" /></> },
+  ];
+  return (
+    <div className="pt-contenido pt-centro">
+      <p className="pt-antetitulo">Tres personas, tres preguntas</p>
+      <h2 className="pt-titular">Cada una recibe su respuesta, y cada respuesta se prueba al centavo.</h2>
+      <div className="pt-tarjetas pt-tres">
+        {personas.map((p) => (
+          <div key={p.quien} className="pt-tarjeta">
+            <svg viewBox="0 0 24 24" className="pt-icono-linea" aria-hidden="true">{p.icono}</svg>
+            <span className="pt-tarjeta-titulo">{p.quien}</span>
+            <span className="pt-tarjeta-texto">«{p.pregunta}»</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Demo({ cifras, irALaApp }) {
   const k = cifras.panel?.kpis;
   return (
@@ -183,11 +214,12 @@ function Demo({ cifras, irALaApp }) {
   );
 }
 
-function Confianza() {
+function Confianza({ cifras }) {
   const tarjetas = [
     { valor: String(HECHOS.diferencias), titulo: 'diferencias', texto: `contra una segunda implementación independiente en Python, en las ${HECHOS.exportaciones} exportaciones oficiales` },
     { valor: '4', titulo: 'reconciliaciones', texto: 'una más que las pedidas: ningún préstamo desaparece entre un mes y otro sin explicación' },
     { valor: String(HECHOS.pruebas), titulo: 'pruebas automáticas', texto: 'reglas, perfiles, carga de un mes nuevo y exportaciones; sumas en centavos enteros' },
+    ...(cifras?.puente ? [{ valor: `${entero(cifras.puente.vencian)} de ${entero(cifras.puente.n_terminados)}`, titulo: 'préstamos explicados', texto: 'ningún préstamo sale sin su fecha de vencimiento: el puente entre meses cuadra al centavo' }] : []),
     { valor: '✦', titulo: 'IA que no calcula', texto: 'explica las cifras oficiales; vive aislada y solo puede leer' },
   ];
   return (
@@ -245,6 +277,7 @@ const DIAPOSITIVAS = [
   { titulo: 'El problema', Componente: Problema },
   { titulo: 'La pregunta', Componente: Pregunta },
   { titulo: 'La solución', Componente: Solucion },
+  { titulo: 'Tres personas, tres preguntas', Componente: TresPersonas },
   { titulo: 'Demostración', Componente: Demo },
   { titulo: 'Por qué confiar', Componente: Confianza },
   { titulo: 'Impacto', Componente: Impacto },

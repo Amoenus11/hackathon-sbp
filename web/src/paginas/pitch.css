@@ -373,3 +373,7 @@
 /* Diapositivas centradas: todo el bloque alineado al centro */
 .pt-centro { display: flex !important; flex-direction: column; align-items: center; text-align: center; }
 .pt-centro > * { margin-left: auto !important; margin-right: auto !important; max-width: min(1100px, 92vw); }
+
+.pt-tres { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+.pt-icono-linea { width: 44px; height: 44px; fill: none; stroke: #0e7c86; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: .6rem; }
+@media (max-width: 760px) { .pt-tres { grid-template-columns: 1fr !important; } }

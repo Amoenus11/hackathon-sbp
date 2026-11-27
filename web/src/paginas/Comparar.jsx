@@ -1,7 +1,9 @@
 // Comparar: (1) dos períodos — movimientos de posición con la regla configurable y explicaciones
 // automáticas; (2) varias entidades — saldos y ponderaciones lado a lado y mapa de calor.
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { AnatomiaBanco } from './Rankings.jsx';
+import './comparar-extra.css';
 import { api } from '../api.js';
 import { useApp, useDatos } from '../contexto.jsx';
 import { Carga } from '../componentes/Estados.jsx';
@@ -23,9 +25,9 @@ export default function Comparar() {
       <EncabezadoPagina titulo="Comparar" subtitulo="Entre períodos (movimientos de posición) y entre entidades (bancos lado a lado)" />
       <Pestanas
         etiqueta="Tipo de comparación" valor={modo} alCambiar={setModo}
-        opciones={[{ valor: 'periodos', texto: 'Entre períodos' }, { valor: 'entidades', texto: 'Entre entidades' }]}
+        opciones={[{ valor: 'periodos', texto: 'Entre períodos' }, { valor: 'entidades', texto: 'Entre entidades' }, { valor: 'bancos', texto: 'Banco contra banco' }]}
       />
-      {modo === 'periodos' ? <EntrePeriodos /> : <EntreEntidades />}
+      {modo === 'periodos' ? <EntrePeriodos /> : modo === 'entidades' ? <EntreEntidades /> : <BancoContraBanco />}
     </>
   );
 }
@@ -55,6 +57,24 @@ export function EntrePeriodos() {
 
   const valido = desde && hasta && desde < hasta;
   const estado = useDatos(() => (valido ? api.movimientos({ desde, hasta, ranking }) : null), [desde, hasta, ranking, valido]);
+
+  // Idea 1 · Puente (abre al tocar un movimiento o con ?puente=COMERCIO-111 en la dirección)
+  const [params] = useSearchParams();
+  const [puente, setPuente] = useState(() => {
+    const p = params.get('puente');
+    if (!p || !p.includes('-')) return null;
+    const [r, b] = p.split('-');
+    return { ranking: r.toUpperCase(), codigo_banco: b };
+  });
+  const refPuente = useRef(null);
+  useEffect(() => {
+    if (puente && refPuente.current) refPuente.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [puente, estado.datos]);
+
+  // Idea 2 · «Tu lectura» (nota interna del analista)
+  const [versionLecturas, setVersionLecturas] = useState(0);
+  const lecturas = useDatos(() => (valido ? api.lecturas(desde, hasta) : null), [desde, hasta, valido, versionLecturas]);
+  const lecturaDe = (r, b) => (lecturas.datos || []).find((l) => l.ranking === r && l.codigo_banco === b);
 
   if (periodos.length < 2) {
     return <Tarjeta titulo="Comparación entre períodos"><p className="nota">Se necesitan al menos dos períodos cargados.</p></Tarjeta>;
@@ -120,7 +140,16 @@ export function EntrePeriodos() {
                       <p className="nota">No hubo movimientos que cumplan la regla.</p>
                     ) : (
                       <ul className="destacados">
-                        {m.explicaciones.map((t, i) => <li key={i} className="destacado"><span className="destacado-icono" aria-hidden="true">✦</span><span>{t}</span></li>)}
+                        {m.explicaciones.map((t, i) => {
+                          const f = m.filas.find((x) => x.significativo && t.includes(x.banco) && t.toLowerCase().includes(tituloRanking(x.ranking, meta).toLowerCase()));
+                          return (
+                            <li key={i} className={`destacado ${f ? 'cx-tocable' : ''}`} onClick={f ? () => setPuente({ ranking: f.ranking, codigo_banco: f.codigo_banco }) : undefined}
+                              role={f ? 'button' : undefined} tabIndex={f ? 0 : undefined}
+                              onKeyDown={f ? (e) => { if (e.key === 'Enter') setPuente({ ranking: f.ranking, codigo_banco: f.codigo_banco }); } : undefined}>
+                              <span className="destacado-icono" aria-hidden="true">✦</span><span>{t}{f && <span className="cx-ver-puente"> Ver el puente →</span>}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </Tarjeta>
@@ -137,11 +166,32 @@ export function EntrePeriodos() {
                     <Grafico opcion={opcionPendiente(paraGrafico, etiquetas)} alto={420} etiqueta="Gráfico de pendiente con la posición de cada banco en ambos períodos" />
                   </Tarjeta>
                 </div>
+                {puente && (() => {
+                  const f = m.filas.find((x) => x.ranking === puente.ranking && x.codigo_banco === puente.codigo_banco);
+                  if (!f) return null;
+                  return (
+                    <div ref={refPuente} className="cx-puente">
+                      <Tarjeta
+                        titulo={`Puente ${etiquetaPeriodo(m.desde, meta)} → ${etiquetaPeriodo(m.hasta, meta)}: solo hechos`}
+                        subtitulo={`${f.banco} · ${tituloRanking(f.ranking, meta)} · del ${f.posicion_anterior}.º al ${f.posicion_actual}.º`}
+                        acciones={<button type="button" className="boton boton-secundario boton-chico" onClick={() => setPuente(null)}>Cerrar</button>}
+                        id="puente"
+                      >
+                        <AnatomiaBanco fecha={m.hasta} ranking={f.ranking} fila={{ codigo_banco: f.codigo_banco, posicion_anterior: f.posicion_anterior }} />
+                        <TuLectura
+                          desde={m.desde} hasta={m.hasta} ranking={f.ranking} codigoBanco={f.codigo_banco}
+                          lectura={lecturaDe(f.ranking, f.codigo_banco)} alGuardar={() => setVersionLecturas((v) => v + 1)}
+                        />
+                      </Tarjeta>
+                    </div>
+                  );
+                })()}
                 <Tarjeta titulo="Movimientos de posición" subtitulo={`${filas.length} filas · Cambio = posición anterior − posición actual (positivo = sube) · Frente al sector = variación del banco − variación de todo el ranking, en puntos porcentuales`} id="tabla-movimientos">
                   <TablaOrdenable
                     etiqueta="Movimientos de posición"
                     claveFila={(f) => `${f.ranking}-${f.codigo_banco}`}
                     filaResaltada={(f) => f.significativo}
+                    alClicFila={(f) => setPuente({ ranking: f.ranking, codigo_banco: f.codigo_banco })}
                     ordenInicial={{ clave: 'significativo', asc: false }}
                     columnas={[
                       { clave: 'ranking', titulo: 'Ranking', valor: (f) => meta.rankings.findIndex((r) => r.nombre === f.ranking), render: (f) => tituloRanking(f.ranking, meta) },
@@ -162,15 +212,156 @@ export function EntrePeriodos() {
                           ? <span className="motivos"><Insignia tono="aviso">Sí</Insignia> {f.motivos.join(' · ')}</span>
                           : <span className="nota">No</span>),
                       },
+                      {
+                        clave: 'lectura', titulo: 'Tu lectura', valor: (f) => (lecturaDe(f.ranking, f.codigo_banco) ? 1 : 0),
+                        render: (f) => {
+                          const l = lecturaDe(f.ranking, f.codigo_banco);
+                          if (l) return <span className="cx-lectura-corta" title={l.texto}>✎ {l.texto.length > 40 ? `${l.texto.slice(0, 40)}…` : l.texto}</span>;
+                          return f.significativo ? <span className="cx-lectura-agregar">✎ Agregar</span> : <span className="nota">—</span>;
+                        },
+                      },
                     ]}
                     filas={filas}
                   />
                 </Tarjeta>
+                <p className="nota cx-pista">Toca cualquier fila o explicación para ver su puente (nuevos, vencidos y pagos) y escribir tu lectura.</p>
               </>
             );
           }}
         </Carga>
       )}
+    </>
+  );
+}
+
+// Idea 2 · «Tu lectura»: la app pone los hechos; la analista pone el criterio. Nota interna, nunca pública.
+function TuLectura({ desde, hasta, ranking, codigoBanco, lectura, alGuardar }) {
+  const [texto, setTexto] = useState(lectura?.texto || '');
+  const [estado, setEstado] = useState(null);
+  useEffect(() => { setTexto(lectura?.texto || ''); setEstado(null); }, [lectura, ranking, codigoBanco, desde, hasta]);
+  async function guardar() {
+    setEstado('guardando');
+    try {
+      await api.guardarLectura({ desde, hasta, ranking, codigo_banco: codigoBanco, texto });
+      setEstado('ok');
+      alGuardar?.();
+    } catch (e) {
+      setEstado(e.message || 'No se pudo guardar.');
+    }
+  }
+  const cuando = lectura?.cuando ? new Date(lectura.cuando).toLocaleString('es-PA', { timeZone: 'America/Panama', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
+  return (
+    <div className="cx-lectura">
+      <div className="cx-lectura-cabecera">
+        <strong>✎ Tu lectura</strong>
+        <span className="cx-lectura-aviso">Nota interna: no se muestra al público</span>
+      </div>
+      <textarea
+        value={texto} onChange={(e) => { setTexto(e.target.value); setEstado(null); }} maxLength={600} rows={3}
+        placeholder="¿Qué crees que explica este movimiento? La app pone los hechos; tú pones el criterio."
+        aria-label="Tu lectura de este movimiento"
+      />
+      <div className="cx-lectura-pie">
+        {lectura && <span className="nota">Escrita por <strong>{lectura.usuario}</strong>{cuando ? ` · ${cuando}` : ''}</span>}
+        {estado === 'ok' && <span className="cx-lectura-ok">Guardada ✓ (queda en el registro)</span>}
+        {estado && estado !== 'ok' && estado !== 'guardando' && <span className="mensaje-error">{estado}</span>}
+        <button type="button" className="boton boton-primario boton-chico" onClick={guardar} disabled={estado === 'guardando' || texto === (lectura?.texto || '')}>
+          {estado === 'guardando' ? 'Guardando…' : 'Guardar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Idea 3 · Banco contra banco: dos bancos lado a lado en las 6 actividades y los meses disponibles
+export function BancoContraBanco() {
+  const { meta } = useApp();
+  const [a, setA] = useState(meta.bancos[0]?.codigo);
+  const [b, setB] = useState(meta.bancos[1]?.codigo);
+  const estado = useDatos(() => Promise.all(meta.rankings.map((r) => api.historia(r.nombre))), [meta]);
+  const nombre = (c) => meta.bancos.find((x) => x.codigo === c)?.nombre || c;
+  const selector = (valor, alCambiar, otro, etiqueta) => (
+    <Campo etiqueta={etiqueta}>
+      <select value={valor} onChange={(e) => alCambiar(e.target.value)}>
+        {meta.bancos.map((x) => <option key={x.codigo} value={x.codigo} disabled={x.codigo === otro}>{x.nombre}</option>)}
+      </select>
+    </Campo>
+  );
+  return (
+    <>
+      <div className="barra-filtros cx-duelo-filtros">
+        {selector(a, setA, b, 'Banco A')}
+        <span className="cx-vs" aria-hidden="true">vs</span>
+        {selector(b, setB, a, 'Banco B')}
+      </div>
+      <Carga estado={estado} filas={8}>
+        {(historias) => {
+          const periodos = historias[0]?.periodos || [];
+          let ganaA = 0; let ganaB = 0;
+          const filas = historias.map((h) => {
+            const ha = h.bancos.find((x) => x.codigo_banco === a);
+            const hb = h.bancos.find((x) => x.codigo_banco === b);
+            const ult = periodos.length - 1;
+            const delante = ha && hb ? (ha.posiciones[ult] < hb.posiciones[ult] ? 'a' : 'b') : null;
+            if (delante === 'a') ganaA++; else if (delante === 'b') ganaB++;
+            return { h, ha, hb, delante };
+          });
+          return (
+            <>
+              <div className="cx-marcador">
+                <div className={`cx-marcador-lado ${ganaA >= ganaB ? 'cx-gana' : ''}`}>
+                  <PuntoBanco codigo={a} /> <strong>{nombre(a)}</strong>
+                  <span className="cx-marcador-cifra">{ganaA}</span>
+                </div>
+                <span className="cx-marcador-texto">actividades por delante en {etiquetaPeriodo(periodos[periodos.length - 1], meta)}</span>
+                <div className={`cx-marcador-lado ${ganaB >= ganaA ? 'cx-gana' : ''}`}>
+                  <span className="cx-marcador-cifra">{ganaB}</span>
+                  <strong>{nombre(b)}</strong> <PuntoBanco codigo={b} />
+                </div>
+              </div>
+              <Tarjeta titulo={`${nombre(a)} contra ${nombre(b)}`} subtitulo="Posición y saldo en cada actividad, mes a mes. Resaltado: quién va delante." id="banco-contra-banco">
+                <div className="tabla-envoltura">
+                  <table className="tabla cx-duelo">
+                    <thead>
+                      <tr>
+                        <th scope="col" rowSpan={2}>Actividad</th>
+                        {periodos.map((p) => <th key={p} scope="col" colSpan={2} className="cx-mes">{etiquetaCorta(p, meta)}</th>)}
+                      </tr>
+                      <tr>
+                        {periodos.map((p) => [
+                          <th key={`${p}a`} scope="col" className="numerica"><PuntoBanco codigo={a} /> {nombre(a).replace(/^Banco /, '')}</th>,
+                          <th key={`${p}b`} scope="col" className="numerica"><PuntoBanco codigo={b} /> {nombre(b).replace(/^Banco /, '')}</th>,
+                        ])}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filas.map(({ h, ha, hb }) => (
+                        <tr key={h.ranking}>
+                          <th scope="row">{tituloRanking(h.ranking, meta)}</th>
+                          {periodos.map((p, i) => {
+                            const aDelante = ha && hb && ha.posiciones[i] < hb.posiciones[i];
+                            return [
+                              <td key={`${p}a`} className={`numerica num ${aDelante ? 'cx-delante' : ''}`}>
+                                <strong>{ha ? `${ha.posiciones[i]}.º` : '—'}</strong>
+                                <span className="celda-sub">{ha ? montoCorto(ha.saldos[i]) : ''}</span>
+                              </td>,
+                              <td key={`${p}b`} className={`numerica num ${ha && hb && !aDelante ? 'cx-delante' : ''}`}>
+                                <strong>{hb ? `${hb.posiciones[i]}.º` : '—'}</strong>
+                                <span className="celda-sub">{hb ? montoCorto(hb.saldos[i]) : ''}</span>
+                              </td>,
+                            ];
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Leyenda>Posición en el ranking de cada actividad (1.º = mayor saldo) y saldo de la actividad. Cifras del motor oficial.</Leyenda>
+              </Tarjeta>
+            </>
+          );
+        }}
+      </Carga>
     </>
   );
 }
