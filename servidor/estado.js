@@ -123,5 +123,7 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
       guardar();
     },
     registro: () => [...guardado.registro].reverse(),
+    firmas: (fecha) => (guardado.firmas || []).filter((f) => f.fecha === fecha).reverse(),
+    firmar(firma) { guardado.firmas = [...(guardado.firmas || []), firma]; guardar(); },
   };
 }

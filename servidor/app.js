@@ -9,7 +9,7 @@ import { preguntarIA } from './ia.js';
 import { crearCuentas } from './cuentas.js';
 import {
   ORDEN_RANKINGS, TIPO_RANKING, TITULO_RANKING, VERSION_MOTOR, ErrorDatos,
-  etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje,
+  etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje, puenteEntreMeses,
 } from '../motor/motor.js';
 import { generar } from '../motor/exportar.js';
 
@@ -263,12 +263,26 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   });
 
   // --- Calidad de datos
+  // Reconciliación 4 (más allá de lo pedido): el puente entre el mes anterior y este, al centavo
+  const r4 = (p) => {
+    const a = estado.anteriorDe(p.fecha);
+    if (!a) return null;
+    const b = puenteEntreMeses(a, p);
+    return {
+      id: 'R4', nombre: `Puente entre meses: ${etiquetaCorta(a.fecha)} + nuevos − terminados ± variación = ${etiquetaCorta(p.fecha)}`,
+      ok: b.cuadra, revisados: b.n_nuevos + b.n_terminados + b.n_siguen, diferencias: b.cuadra ? 0 : 1,
+      detalle: `${aTexto(b.saldo_anterior)} + ${aTexto(b.nuevos)} − ${aTexto(b.terminados)} ${b.variacion < 0n ? '−' : '+'} ${aTexto(b.variacion < 0n ? -b.variacion : b.variacion)} = ${aTexto(b.saldo_actual)}`,
+      puente: aJson(b),
+      nota: `Ningún préstamo desaparece sin explicación: ${b.vencian} de ${b.n_terminados} que salieron vencían en ${etiquetaPeriodo(p.fecha)} o antes.`,
+    };
+  };
   app.get('/api/calidad', (req, res) => {
     const p = fechaDe(req);
+    const cuarta = r4(p);
     res.json({
       fecha: p.fecha, archivo: p.archivo, filas_leidas: p.filas_leidas, cascada: p.cascada, universo: p.universo,
       saldo_universo: aTexto(p.saldo_universo), cuadra: p.cuadra, independientes: p.independientes,
-      reconciliaciones: p.reconciliaciones, alertas: p.alertas, esquema: p.esquema,
+      reconciliaciones: cuarta ? [...p.reconciliaciones, cuarta] : p.reconciliaciones, alertas: p.alertas, esquema: p.esquema,
       reclasificadas_sb21: p.indicadores.reclasificadas_sb21,
     });
   });
@@ -279,6 +293,58 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     const pagina = Math.max(1, Number(req.query.pagina) || 1);
     const todas = p.excluidas.filter((e) => !filtro || e.filtro === filtro);
     res.json({ total: todas.length, pagina, por_pagina: porPagina, filas: todas.slice((pagina - 1) * porPagina, pagina * porPagina) });
+  });
+
+  // --- Semáforo de publicación (analista+): los controles de la Sección 12, en verde o rojo, y la firma
+  const controles = (p) => {
+    const c = [];
+    const { E1, E2, E3, E4 } = p.cascada;
+    c.push({ id: 'cascada', texto: 'Filas leídas = E1 + E2 + E3 + E4 + universo local válido', ok: p.cuadra, detalle: `${p.filas_leidas} = ${E1} + ${E2} + ${E3} + ${E4} + ${p.universo}` });
+    c.push({ id: 'esquema', texto: '61 columnas en el orden del diccionario; códigos leídos como texto (07 sigue siendo 07)', ok: p.esquema.ok, detalle: `${p.esquema.columnas} columnas` });
+    const unico = p.reconciliaciones.find((r) => r.id === 'U');
+    c.push({ id: 'unicos', texto: 'Ningún Numero_Prestamo se repite en el universo local válido', ok: unico.ok, detalle: `${p.universo} préstamos únicos` });
+    const completos = ORDEN_RANKINGS.every((m) => p.rankings[m].length === 12 && p.rankings[m].every((f, i) => f.posicion === i + 1));
+    c.push({ id: 'rankings', texto: '6 rankings con 12 bancos y posiciones 1 a 12 sin huecos', ok: completos, detalle: '6 × 12' });
+    for (const r of p.reconciliaciones.filter((x) => ['R1', 'R2', 'R3'].includes(x.id))) c.push({ id: r.id, texto: `${r.id} · ${r.nombre}`, ok: r.ok, detalle: `${r.revisados} revisados, ${r.diferencias} diferencias` });
+    const cuarta = r4(p);
+    if (cuarta) c.push({ id: 'R4', texto: `R4 · ${cuarta.nombre}`, ok: cuarta.ok, detalle: cuarta.detalle });
+    const consumoOk = estado.catalogos.bancos.every((b) => {
+      const suma = p.desglose.CONSUMO.filter((f) => f.codigo_banco === b.codigo).reduce((t, f) => t + f.saldo, 0n);
+      return suma === p.rankings.CONSUMO.find((f) => f.codigo_banco === b.codigo).saldo_actividad;
+    });
+    c.push({ id: 'consumo', texto: 'El total de CONSUMO por banco es igual con o sin la regla SB21', ok: consumoOk, detalle: `${p.indicadores.reclasificadas_sb21} operaciones reclasificadas a Tarjeta` });
+    const denominador = estado.catalogos.bancos.every((b) => new Set(ORDEN_RANKINGS.map((m) => p.rankings[m].find((f) => f.codigo_banco === b.codigo).total_cartera)).size === 1);
+    c.push({ id: 'denominador', texto: 'El mismo denominador (cartera total del banco) en los 6 rankings', ok: denominador, detalle: '12 bancos' });
+    const sinAlertasGraves = !p.alertas.some((a) => a.severidad === 'alta');
+    c.push({ id: 'alertas', texto: 'Sin alertas graves de integridad (bancos o saldos desconocidos)', ok: sinAlertasGraves, detalle: `${p.alertas.length} alertas` });
+    return c;
+  };
+  app.get('/api/controles', permiso('reportes'), (req, res) => {
+    const p = fechaDe(req);
+    const lista = controles(p);
+    res.json({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), controles: lista, ok: lista.every((x) => x.ok), firmas: estado.firmas(p.fecha) });
+  });
+  app.post('/api/publicaciones', permiso('reportes'), (req, res) => {
+    const p = estado.periodo(String(req.body?.fecha || ''));
+    const nombre = String(req.body?.nombre || '').trim().slice(0, 80);
+    if (!nombre) throw new ErrorDatos('Escribe tu nombre para firmar.');
+    const lista = controles(p);
+    if (!lista.every((x) => x.ok)) throw new ErrorDatos('No se puede firmar: hay controles en rojo.');
+    const firma = { fecha: p.fecha, nombre, usuario: req.usuario, cuando: new Date().toISOString(), controles: lista.length };
+    estado.firmar(firma);
+    registrar(req, 'firmar_publicacion', `${etiquetaPeriodo(p.fecha)} · ${lista.length} de ${lista.length} controles ✓ · firma: ${nombre}`);
+    res.json(firma);
+  });
+
+  // --- Carta de calidad al banco (analista+): sus filas excluidas, para pedir correcciones
+  app.get('/api/carta', permiso('calidad'), (req, res) => {
+    const p = fechaDe(req);
+    const banco = estado.catalogos.bancoPorCodigo.get(String(req.query.banco || ''));
+    if (!banco) throw new ErrorDatos('Elige un banco.');
+    const filas = p.excluidas.filter((e) => e.codigo_banco === banco.codigo);
+    const cuenta = { E1: 0, E2: 0, E3: 0, E4: 0 };
+    for (const e of filas) cuenta[e.filtro]++;
+    res.json({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), codigo_banco: banco.codigo, banco: banco.nombre, conteos: cuenta, filas });
   });
 
   // --- Exportaciones oficiales

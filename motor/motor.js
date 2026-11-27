@@ -171,12 +171,13 @@ function procesarPeriodo(fecha, filas, i, cat, archivo, esquema, ahora) {
     universo.push({
       banco, prestamo, saldo, macro: clase.macroactividad, subactividad, reclasificada,
       diasMora: Number(v[i.Dias_Mora]) || 0,
+      vence: String(v[i.Fecha_Vencimiento] || '').slice(0, 6),
     });
   }
   const resultado = agregar({ fecha, archivo, cargado: ahora.toISOString(), filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema });
   // Cada préstamo válido con su banco, actividad y saldo: permite explicar POR QUÉ cambió un saldo
   // entre dos meses (un mismo Numero_Prestamo aparece mientras está vigente).
-  resultado.prestamos = new Map(universo.map((u) => [u.prestamo, { banco: u.banco, macro: u.macro, saldo: u.saldo }]));
+  resultado.prestamos = new Map(universo.map((u) => [u.prestamo, { banco: u.banco, macro: u.macro, saldo: u.saldo, vence: u.vence }]));
   return resultado;
 }
 
@@ -314,6 +315,24 @@ export function anatomiaDelCambio(anterior, actual) {
   return (macro, banco) => datos.get(clave(macro, banco)) || { nuevos: 0n, n_nuevos: 0, terminados: 0n, n_terminados: 0, variacion: 0n, n_siguen: 0 };
 }
 
+/** Puente del sistema entre dos meses (Reconciliación 4) y cuántos de los que terminaron vencían ese mes. */
+export function puenteEntreMeses(anterior, actual) {
+  let nuevos = 0n; let nNuevos = 0; let terminados = 0n; let nTerminados = 0; let variacion = 0n; let nSiguen = 0; let vencian = 0;
+  const mesActual = actual.fecha.slice(0, 6);
+  for (const [id, a] of actual.prestamos) {
+    const p = anterior.prestamos.get(id);
+    if (p) { variacion += a.saldo - p.saldo; nSiguen++; } else { nuevos += a.saldo; nNuevos++; }
+  }
+  for (const [id, p] of anterior.prestamos) {
+    if (!actual.prestamos.has(id)) { terminados += p.saldo; nTerminados++; if (p.vence && p.vence <= mesActual) vencian++; }
+  }
+  return {
+    saldo_anterior: anterior.saldo_universo, nuevos, n_nuevos: nNuevos, terminados, n_terminados: nTerminados,
+    variacion, n_siguen: nSiguen, saldo_actual: actual.saldo_universo, vencian,
+    cuadra: anterior.saldo_universo + nuevos - terminados + variacion === actual.saldo_universo,
+  };
+}
+
 export const PARAMETROS_INICIALES = { mov_min_posiciones: 2, mov_cambio_lider: true, mov_var_saldo_pct: '15.00' };
 
 /** Compara dos períodos (anterior → actual): Cambio_Posicion = anterior − actual. */
@@ -344,7 +363,7 @@ export function compararPeriodos(anterior, actual, parametros = PARAMETROS_INICI
         anatomia: anatomia ? anatomia(macro, f.codigo_banco) : null,
       };
       filas.push(fila);
-      if (fila.significativo) explicaciones.push(explicar(fila, macro, liderAnterior, anterior, actual));
+      if (fila.significativo) explicaciones.push(explicar(fila, macro, liderAnterior, anterior, actual, anatomia));
     }
   }
   explicaciones.sort((a, b) => b.peso - a.peso);
@@ -352,7 +371,7 @@ export function compararPeriodos(anterior, actual, parametros = PARAMETROS_INICI
 }
 
 /** Explicación automática y determinista de un movimiento (sin IA). */
-function explicar(f, macro, liderAnterior, anterior, actual) {
+function explicar(f, macro, liderAnterior, anterior, actual, anatomia) {
   const titulo = TITULO_RANKING[macro];
   const crecio = f.var_saldo >= 0n;
   const saldoTxt = f.var_saldo_pct === null ? '' : `su saldo ${crecio ? 'creció' : 'bajó'} ${pctTexto(f.var_saldo_pct)} (${millones(f.saldo_anterior)} → ${millones(f.saldo_actual)})`;
@@ -364,12 +383,22 @@ function explicar(f, macro, liderAnterior, anterior, actual) {
     .filter((x) => (f.cambio > 0
       ? antes.get(x.codigo_banco) < f.posicion_anterior && x.posicion > f.posicion_actual
       : antes.get(x.codigo_banco) > f.posicion_anterior && x.posicion < f.posicion_actual))
-    .map((x) => x.banco);
+    ;
+  const nombresCruzados = cruzados.map((x) => x.banco);
   // El motor del cambio (anatomía): préstamos nuevos frente a los que terminaron
   const an = f.anatomia;
-  const motor = an && (an.n_nuevos || an.n_terminados)
+  let motor = an && (an.n_nuevos || an.n_terminados)
     ? ` Detrás del cambio: ${an.n_nuevos} préstamos nuevos (+${millones(an.nuevos)}) y ${an.n_terminados} que terminaron (−${millones(an.terminados)}).`
     : '';
+  // El porqué que nadie más cuenta: perdió puestos aunque prestó igual o más que quien lo superó
+  if (an && anatomia && (f.cambio < 0 || (liderAnterior.codigo_banco === f.codigo_banco && f.posicion_actual !== 1))) {
+    const rival = cruzados.map((x) => ({ x, a: anatomia(macro, x.codigo_banco) })).find(({ a }) => an.nuevos >= a.nuevos && an.terminados > a.terminados);
+    if (rival) {
+      motor = ` No prestó menos: le vencieron más. Colocó ${millones(an.nuevos)} (más que ${rival.x.banco}, ${millones(rival.a.nuevos)}), pero le vencieron ${millones(an.terminados)} (a ${rival.x.banco}, ${millones(rival.a.terminados)}).`;
+    }
+  } else if (an && f.cambio > 0 && an.nuevos > an.terminados) {
+    motor = ` Sube por préstamos nuevos: colocó ${millones(an.nuevos)} en ${an.n_nuevos} operaciones.`;
+  }
   let texto;
   let tipo;
   let peso;
@@ -380,7 +409,7 @@ function explicar(f, macro, liderAnterior, anterior, actual) {
   } else if (f.cambio !== 0) {
     tipo = f.cambio > 0 ? 'sube' : 'baja';
     peso = 100 + Math.abs(f.cambio) * 10;
-    const cruce = cruzados.length ? ` ${f.cambio > 0 ? 'Supera a' : 'Lo superan'} ${cruzados.slice(0, 3).join(', ')}${cruzados.length > 3 ? ' y otros' : ''}.` : '';
+    const cruce = nombresCruzados.length ? ` ${f.cambio > 0 ? 'Supera a' : 'Lo superan'} ${nombresCruzados.slice(0, 3).join(', ')}${nombresCruzados.length > 3 ? ' y otros' : ''}.` : '';
     texto = `${f.banco} ${f.cambio > 0 ? 'sube' : 'baja'} del ${ordinal(f.posicion_anterior)} al ${ordinal(f.posicion_actual)} lugar en ${titulo} (${f.cambio > 0 ? '+' : ''}${f.cambio}); ${saldoTxt}.${cruce}`;
   } else {
     tipo = 'saldo';
