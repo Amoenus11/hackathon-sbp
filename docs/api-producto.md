@@ -30,3 +30,16 @@ En `GET /api/meta` llega `modo: "demo" | "producto"`. En modo `demo` (syntropy.c
 - Un archivo inválido → 400 `{ error, detalle: { faltan: [...], sobran: [...], sugerencias: { "Num_Prestamo": "Numero_Prestamo" } } }`.
 - `GET /api/cargas` (analista+) → historial `[{ cuando, usuario, archivo, formato, fechas, filas, milisegundos, ok, error, conversion }]`
   (también las cargas fallidas, con su error).
+
+## Descarga a tu medida (ambos modos; pedido del stakeholder)
+«Hoy descargo todo y luego veo cómo lo proceso»: aquí el usuario elige qué quiere, sin saber programar.
+- `GET /api/extraccion/opciones` → `{ cortes: [{fecha, etiqueta}], bancos: [{codigo, nombre}], actividades: [{ranking, titulo, subactividades: [..]}],
+  clasificaciones: [{codigo, nombre}], campos: [{campo, titulo, grupo, defecto: bool}], agrupaciones: [{clave, titulo}] }`
+  Los campos personales (ID_Cliente, Nombre_Cliente) NO se ofrecen nunca.
+- `POST /api/extraccion` `{ cortes: [...], bancos: [...] (vacío = todos), actividades: [...rankings], subactividades: [...] (vacío = todas),
+  clasificaciones: [...] (vacío = todas), campos: [...], nivel: "detalle" | "resumen", agrupar: ["corte","banco","actividad","subactividad","clasificacion"],
+  incluir_excluidas: bool, formato: "json" | "csv" | "xlsx" }`
+  - `formato: "json"` → vista previa `{ total_filas, columnas: [...], filas: [[...] x 20], saldo_total, nota }`.
+  - `csv` / `xlsx` → el archivo (Content-Disposition con nombre `syntropy_extraccion_<cortes>.csv`).
+  - Nivel `detalle`: una fila por préstamo del universo local válido (+ las excluidas con su filtro si `incluir_excluidas`).
+  - Nivel `resumen`: una fila por combinación de `agrupar`, con `Operaciones`, `Saldo`, `Saldo_en_mora` (Dias_Mora > 0) y `Pct_mora`.

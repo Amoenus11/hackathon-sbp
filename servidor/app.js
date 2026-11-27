@@ -8,6 +8,7 @@ import { crearSesiones, usuariosDesdeEntorno, PERMISOS, NOMBRE_PERFIL } from './
 import { preguntarIA } from './ia.js';
 import { crearCuentas } from './cuentas.js';
 import { crearProducto } from './producto.js';
+import { opciones as opcionesExtraccion, extraer, comoCsv, comoExcel } from './extraccion.js';
 import {
   ORDEN_RANKINGS, TIPO_RANKING, TITULO_RANKING, VERSION_MOTOR, ErrorDatos,
   etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje, puenteEntreMeses,
@@ -380,6 +381,26 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     const cuenta = { E1: 0, E2: 0, E3: 0, E4: 0 };
     for (const e of filas) cuenta[e.filtro]++;
     res.json({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), codigo_banco: banco.codigo, banco: banco.nombre, conteos: cuenta, filas });
+  });
+
+  // --- Descarga a tu medida (todos los perfiles): solo lo que la persona elige
+  app.get('/api/extraccion/opciones', (req, res) => res.json(opcionesExtraccion(estado)));
+  app.post('/api/extraccion', async (req, res, next) => {
+    try {
+      const pedido = req.body || {};
+      const { columnas, filas, saldo_total } = extraer(estado, pedido);
+      const formato = ['csv', 'xlsx'].includes(pedido.formato) ? pedido.formato : 'json';
+      if (formato === 'json') {
+        return res.json({ total_filas: filas.length, columnas, filas: filas.slice(0, 20), saldo_total: aTexto(saldo_total),
+          nota: 'Vista previa de las primeras 20 filas. Datos 100 % ficticios.' });
+      }
+      if (filas.length > 200000) throw new ErrorDatos('Son demasiadas filas para una descarga: filtra un poco más.');
+      const nombre = `syntropy_extraccion_${(pedido.cortes || []).join('-') || 'todos'}.${formato}`;
+      registrar(req, 'descarga_medida', `${nombre} · ${filas.length} filas · ${pedido.nivel === 'resumen' ? 'resumen' : 'detalle'}`);
+      res.set('Content-Disposition', `attachment; filename="${nombre}"`);
+      if (formato === 'csv') return res.type('text/csv; charset=utf-8').send(comoCsv(columnas, filas));
+      res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').send(await comoExcel(columnas, filas));
+    } catch (e) { next(e); }
   });
 
   // --- Exportaciones oficiales

@@ -30,6 +30,14 @@ export const CINU_TARJETA = 'K.64.649.6499.64991';
 const FACILIDAD_TARJETA = '07';
 const FACILIDAD_AUTO = '03';
 
+// Campos que se pueden descargar por préstamo. Nunca los personales (ID_Cliente, Nombre_Cliente).
+export const CAMPOS_DETALLE = [
+  'Facilidad_Crediticia', 'Tipo_Credito', 'Tipo_Actividad', 'Codigo_Region', 'Tamano_Empresa',
+  'Valor_Inicial', 'Intereses_por_Cobrar', 'Clasificacion_Prestamo', 'Dias_Mora', 'Provision', 'Perfil_Vencimiento',
+  'Fecha_Inicial_Prestamo', 'Fecha_Vencimiento', 'Fecha_Proximo_Pago_Capital', 'Tasa_Interes', 'Periodicidad_Pago_Capital',
+  'Primera_Garantia', 'Valor_Primera_Garantia',
+];
+
 export class ErrorDatos extends Error {
   constructor(mensaje, detalle) { super(mensaje); this.detalle = detalle; }
 }
@@ -177,11 +185,13 @@ function procesarPeriodo(fecha, filas, i, cat, archivo, esquema, ahora) {
       banco, prestamo, saldo, macro: clase.macroactividad, subactividad, reclasificada,
       diasMora: Number(v[i.Dias_Mora]) || 0,
       vence: String(v[i.Fecha_Vencimiento] || '').slice(0, 6),
+      det: Object.fromEntries(CAMPOS_DETALLE.map((c) => [c, v[i[c]]])), // para «Descarga a tu medida»
     });
   }
   const resultado = agregar({ fecha, archivo, cargado: ahora.toISOString(), filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema });
   // Cada préstamo válido con su banco, actividad y saldo: permite explicar POR QUÉ cambió un saldo
   // entre dos meses (un mismo Numero_Prestamo aparece mientras está vigente).
+  resultado.validas = universo; // cada préstamo válido con su clasificación y sus campos de detalle
   resultado.prestamos = new Map(universo.map((u) => [u.prestamo, { banco: u.banco, macro: u.macro, saldo: u.saldo, vence: u.vence }]));
   return resultado;
 }

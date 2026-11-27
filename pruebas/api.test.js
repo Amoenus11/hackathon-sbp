@@ -83,3 +83,14 @@ test('exportaciones con las columnas exactas de la Sección 10', async () => {
     assert.equal(texto.split('\r\n')[0], COLUMNAS[tipo].join(','));
   }
 });
+
+test('descarga a tu medida: solo lo elegido, sin datos personales', async () => {
+  const cuerpo = { cortes: ['20260831'], actividades: ['CONSUMO'], subactividades: ['Tarjeta'], bancos: ['112'], nivel: 'detalle', campos: ['Saldo', 'Dias_Mora'], formato: 'json' };
+  const r = await (await pedir('/api/extraccion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) })).json();
+  assert.ok(r.total_filas > 0);
+  assert.ok(!r.columnas.includes('Nombre_Cliente') && !r.columnas.includes('ID_Cliente'));
+  assert.ok(r.filas.every((f) => f[0] === '20260831' && f[1] === '112' && f[5] === 'Tarjeta'));
+  const resumen = await (await pedir('/api/extraccion', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cortes: ['20260831'], nivel: 'resumen', agrupar: ['actividad'], formato: 'json' }) })).json();
+  assert.equal(resumen.total_filas, 6);
+});
