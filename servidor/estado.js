@@ -48,7 +48,9 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
     periodos.clear();
     for (const a of guardado.archivos) {
       if (!existsSync(a.ruta)) continue;
-      for (const p of procesarArchivo(readFileSync(a.ruta, 'utf8'), a.nombre, catalogos, new Date(a.cargado))) {
+      const resultado = procesarArchivo(readFileSync(a.ruta, 'utf8'), a.nombre, catalogos, new Date(a.cargado));
+      a.fechas = resultado.map((p) => p.fecha);
+      for (const p of resultado) {
         if (!guardado.quitados.includes(p.fecha)) periodos.set(p.fecha, p);
       }
     }
@@ -104,9 +106,13 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
       writeFileSync(ruta, contenido);
       const fechas = resultado.map((p) => p.fecha);
       const reemplazo = fechas.some((f) => periodos.has(f));
-      guardado.archivos.push({ nombre, ruta, cargado: new Date().toISOString(), usuario });
+      // Solo se calcula el archivo nuevo. Los archivos anteriores que este reemplaza por completo dejan de
+      // usarse (siguen guardados en disco, no se borran), así cada carga tarda lo mismo.
+      guardado.archivos = guardado.archivos.filter((a) => !(a.fechas && a.fechas.length && a.fechas.every((f) => fechas.includes(f))));
+      guardado.archivos.push({ nombre, ruta, cargado: new Date().toISOString(), usuario, fechas });
       guardado.quitados = guardado.quitados.filter((f) => !fechas.includes(f));
-      recalcular();
+      for (const p of resultado) periodos.set(p.fecha, p);
+      publicar();
       guardar();
       return { fechas, reemplazo };
     },
@@ -114,7 +120,8 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
       if (!periodos.has(fecha)) throw Object.assign(new Error(`No hay datos del período ${fecha}.`), { estado: 404 });
       if (periodos.size === 1) throw new ErrorDatos('Debe quedar al menos un período cargado.');
       guardado.quitados.push(fecha);
-      recalcular();
+      periodos.delete(fecha);
+      publicar();
       guardar();
     },
     registrar(usuario, perfil, accion, detalle) {
