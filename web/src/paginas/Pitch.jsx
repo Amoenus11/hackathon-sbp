@@ -399,7 +399,7 @@ function Tecnologia() {
     { que: 'node --test', por: `${HECHOS.pruebas} pruebas automáticas en cada cambio: reglas, perfiles y cargas.` },
     { que: 'Docker + Cloudflare', por: 'Publicada sin puertos abiertos; también corre local con npm start (R1).' },
     { que: 'Claude, aislado', por: 'La IA solo lee y explica las cifras ya calculadas; nunca calcula (Sección 9).' },
-    { que: 'Sin base de datos externa', por: 'Los CSV del reto son la fuente: todo se recalcula en menos de 2 s (R2).' },
+    { que: 'Datos guardados en el servidor', por: 'Cuentas (contraseñas cifradas), meses cargados, firmas y registro en archivos JSON persistentes; los rankings se recalculan siempre desde los archivos del reto (R2).' },
   ];
   return (
     <div className="pt-contenido">
