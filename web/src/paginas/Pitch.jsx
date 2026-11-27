@@ -121,15 +121,15 @@ function Problema({ cifras }) {
     <div className="pt-contenido">
       <p className="pt-antetitulo">El problema, hoy</p>
       <h2 className="pt-titular">
-        Cada mes, los bancos envían a la Superintendencia la lista de todos sus préstamos. Alguien tiene que ordenarla a mano.
+        Cada mes llegan miles de préstamos. Alguien los ordena a mano.
       </h2>
       <p className="pt-pie-cifra">
-        {filasTotales && periodos ? `Solo en ${periodos} meses son ${entero(filasTotales)} préstamos. ` : ''}
+        {filasTotales && periodos ? `Los bancos envían a la Superintendencia todos sus préstamos: ${entero(filasTotales)} en solo ${periodos} meses. ` : 'Los bancos envían a la Superintendencia todos sus préstamos. '}
         Y quien quiere saber qué banco presta más solo encuentra Excel y PDF: <b>los datos son públicos, pero no son comprensibles.</b>
       </p>
       <div className="pt-trio">
         <div className="pt-dato">
-          <strong>Mucho trabajo a mano</strong>
+          <strong>Trabajo a mano</strong>
           <span>quitar préstamos repetidos, los que se usan fuera del país y los que ya no deben nada, uno por uno</span>
         </div>
         <div className="pt-dato">
@@ -137,7 +137,7 @@ function Problema({ cifras }) {
           <span>{bancos && rankings ? `${bancos} bancos en ${rankings} actividades: ` : ''}Excel cambia códigos como «07» por «7», y una tarjeta mal clasificada mueve todo un ranking</span>
         </div>
         <div className="pt-dato">
-          <strong>Un error cuesta caro</strong>
+          <strong>Errores caros</strong>
           <span>una cifra pública equivocada no se corrige: <b>se recuerda</b></span>
         </div>
       </div>
