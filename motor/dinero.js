@@ -1,43 +1,59 @@
-// Aritmética exacta: todos los montos se manejan como centavos enteros (BigInt).
-// Así una suma de miles de saldos nunca pierde un centavo (el punto flotante sí puede).
+// Aritmética exacta para montos.
+//
+// Los montos se convierten de texto a CENTAVOS ENTEROS sin pasar nunca por punto flotante
+// ("84556.97" → 8455697). Se suman como enteros de JavaScript, que son exactos hasta 2^53
+// (≈ 90 billones de unidades monetarias); cada suma se vigila con Number.isSafeInteger.
+// Los porcentajes, que multiplican por 10^6, se calculan con BigInt.
 
-const MONTO = /^(-?)(\d+)(?:\.(\d{1,2}))?$/;
+const PATRON_MONTO = /^(-?)(\d+)(?:\.(\d{1,2}))?$/;
 
-/** "1234.5" → 123450n. Devuelve null si el texto no es un monto válido. */
-export function aCentavos(texto) {
-  const m = MONTO.exec(String(texto).trim());
+/** Texto → centavos enteros. Devuelve null si el texto no es un monto válido con hasta 2 decimales. */
+export function centavos(texto) {
+  const m = PATRON_MONTO.exec(texto);
   if (!m) return null;
-  const centavos = BigInt(m[2]) * 100n + BigInt((m[3] || '').padEnd(2, '0') || '0');
-  return m[1] === '-' ? -centavos : centavos;
+  const valor = Number(m[2]) * 100 + Number((m[3] ?? '').padEnd(2, '0'));
+  if (!Number.isSafeInteger(valor)) return null;
+  return m[1] === '-' ? -valor : valor;
 }
 
-/** 123450n → "1234.50" (sin separador de miles, punto decimal). */
-export function aTexto(centavos) {
-  const negativo = centavos < 0n;
-  const v = negativo ? -centavos : centavos;
-  const entero = v / 100n;
-  const resto = (v % 100n).toString().padStart(2, '0');
-  return `${negativo ? '-' : ''}${entero}.${resto}`;
+/** Suma segura de centavos: lanza error si el resultado deja de ser exacto. */
+export function sumar(a, b) {
+  const r = a + b;
+  if (!Number.isSafeInteger(r)) throw new RangeError('Suma de montos fuera del rango exacto.');
+  return r;
+}
+
+/** Centavos → texto con 2 decimales, sin separador de miles ("1234.50", "-0.05"). */
+export function monto(c) {
+  const signo = c < 0 ? '-' : '';
+  const v = Math.abs(c);
+  return `${signo}${Math.trunc(v / 100)}.${String(v % 100).padStart(2, '0')}`;
 }
 
 /**
- * Porcentaje exacto con 4 decimales y redondeo aritmético (la mitad se aleja de cero):
- * pct(parte, total) = parte / total × 100, devuelto como texto "12.3456".
+ * parte / total × 100 con 4 decimales y redondeo aritmético (la mitad se aleja de cero).
+ * Devuelve texto ("12.3456") o null si total es 0.
  */
-export function porcentaje(parte, total) {
-  if (total === 0n) return null;
-  // parte/total×100 con 4 decimales  =  round(parte × 10^6 / total) / 10^4
-  let num = parte * 1000000n;
-  let den = total;
-  if (den < 0n) { num = -num; den = -den; }
-  const negativo = num < 0n;
-  if (negativo) num = -num;
-  const redondeado = (num * 2n + den) / (den * 2n); // mitad hacia arriba sobre el valor absoluto
-  const entero = redondeado / 10000n;
-  const dec = (redondeado % 10000n).toString().padStart(4, '0');
-  const signo = negativo && redondeado !== 0n ? '-' : '';
-  return `${signo}${entero}.${dec}`;
+export function porcentaje4(parte, total) {
+  if (total === 0) return null;
+  let p = BigInt(parte) * 1000000n; // ×100 (porcentaje) ×10^4 (4 decimales)
+  let t = BigInt(total);
+  if (t < 0n) { p = -p; t = -t; }
+  const negativo = p < 0n;
+  if (negativo) p = -p;
+  const q = (2n * p + t) / (2n * t); // redondeo half-up sobre el valor absoluto
+  if (q === 0n) return '0.0000';
+  const s = q.toString().padStart(5, '0');
+  return `${negativo ? '-' : ''}${s.slice(0, -4)}.${s.slice(-4)}`;
 }
 
-/** Comparación para ordenar BigInt de mayor a menor. */
-export const mayorPrimero = (a, b) => (a > b ? -1 : a < b ? 1 : 0);
+/**
+ * Porcentaje en texto ("12.3456", "15", "-2.5") → diezmilésimas enteras (123456, 150000, -25000),
+ * sin pasar por float. Sirve para comparar contra umbrales. Devuelve null si no es un número.
+ */
+export function diezmilesimas(p) {
+  const m = /^(-?)(\d+)(?:\.(\d{1,4}))?$/.exec(String(p ?? '').trim());
+  if (!m) return null;
+  const v = Number(m[2]) * 10000 + Number((m[3] ?? '').padEnd(4, '0'));
+  return m[1] === '-' ? -v : v;
+}

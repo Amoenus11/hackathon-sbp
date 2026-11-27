@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// La web (React) vive en web/; se compila a dist/, que sirve el servidor Node.
+// La web (React) vive en web/ y se compila a dist/, que sirve el servidor Node.
+// En desarrollo, Vite (5173) reenvía /api al servidor (3000).
 export default defineConfig({
   root: 'web',
   plugins: [react()],

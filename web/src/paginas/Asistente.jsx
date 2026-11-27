@@ -1,84 +1,67 @@
-// Asistente IA: responde preguntas en lenguaje natural usando SOLO resultados ya calculados por el motor.
-import { useEffect, useRef, useState } from 'react';
-import { api } from '../api.js';
+// Asistente IA (perfil analista): explica resultados ya calculados. Nunca calcula rankings.
+import { useState } from 'react';
 import { useApp } from '../contexto.jsx';
-import { EncabezadoPagina, Tarjeta } from '../componentes/Comunes.jsx';
-import { etiquetaPeriodo } from '../formato.js';
+import { api } from '../api.js';
+import { Aviso, Tarjeta } from '../componentes/Comunes.jsx';
+import { mes } from '../formato.js';
 
 const SUGERENCIAS = [
-  '¿Qué banco lidera el crédito hipotecario y con qué ventaja?',
-  'Explica los movimientos de posición más importantes respecto al mes anterior.',
-  '¿Qué tan concentrado está el crédito de consumo?',
-  '¿Cuántos registros se excluyeron y por qué motivo?',
-  '¿En qué actividad se especializa cada banco?',
+  '¿Qué bancos subieron más posiciones este mes y por qué?',
+  '¿Qué banco está más especializado en hipotecas?',
+  'Resume en tres puntos la situación del ranking de Construcción.',
+  '¿Qué tan concentrado está el mercado de Consumo?',
 ];
 
 export default function Asistente() {
-  const { meta, fecha } = useApp();
-  const [mensajes, setMensajes] = useState([]);
+  const { fecha } = useApp();
   const [pregunta, setPregunta] = useState('');
-  const [pensando, setPensando] = useState(false);
-  const final = useRef(null);
+  const [historial, setHistorial] = useState([]);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => { final.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [mensajes, pensando]);
-
-  async function preguntar(texto) {
-    const t = texto.trim();
-    if (!t || pensando) return;
-    setPregunta('');
-    setMensajes((m) => [...m, { de: 'yo', texto: t }]);
-    setPensando(true);
+  const enviar = async (texto) => {
+    const q = (texto ?? pregunta).trim();
+    if (!q) return;
+    setEnviando(true);
+    setError(null);
     try {
-      const r = await api.preguntarIA(t, fecha);
-      setMensajes((m) => [...m, { de: 'ia', texto: r.respuesta, disponible: r.disponible, segundos: r.segundos }]);
+      const r = await api('/ia', { metodo: 'POST', cuerpo: { pregunta: q, fecha } });
+      setHistorial((h) => [{ pregunta: q, ...r, fecha }, ...h]);
+      setPregunta('');
     } catch (e) {
-      setMensajes((m) => [...m, { de: 'ia', texto: e.message, error: true }]);
+      setError(e);
     } finally {
-      setPensando(false);
+      setEnviando(false);
     }
-  }
+  };
 
   return (
     <>
-      <EncabezadoPagina titulo="Asistente IA" subtitulo={`Pregunta en lenguaje natural sobre los resultados de ${etiquetaPeriodo(fecha, meta)}`} />
-      <div className="aviso-ia" role="note">
-        <strong>La IA explica resultados ya calculados; nunca calcula los rankings.</strong> Los números oficiales salen del motor determinista
-        (mismos archivos → mismos resultados). Verifica cualquier cifra en Rankings o en Calidad de datos.
+      <div className="titulo-pagina">
+        <h1>Asistente IA</h1>
+        <p>Haga preguntas en lenguaje natural sobre los resultados de {mes(fecha)}. La IA solo recibe cifras ya calculadas por el motor y las explica; no calcula ni modifica rankings.</p>
       </div>
-      <Tarjeta className="tarjeta-chat" id="chat">
-        <div className="chat" aria-live="polite">
-          {mensajes.length === 0 && (
-            <div className="chat-vacio">
-              <p>Prueba con una de estas preguntas:</p>
-              <div className="chips">
-                {SUGERENCIAS.map((s) => <button key={s} type="button" className="chip" onClick={() => preguntar(s)}>{s}</button>)}
-              </div>
-            </div>
-          )}
-          {mensajes.map((m, i) => (
-            <div key={i} className={`burbuja burbuja-${m.de} ${m.error ? 'burbuja-error' : ''} ${m.disponible === false ? 'burbuja-aviso' : ''}`}>
-              <p className="burbuja-autor">{m.de === 'yo' ? 'Tú' : 'Asistente Syntropy'}</p>
-              <p className="burbuja-texto">{m.texto}</p>
-              {m.segundos != null && <p className="burbuja-meta">Respondió en {Number(m.segundos).toFixed(1)} s</p>}
-            </div>
-          ))}
-          {pensando && (
-            <div className="burbuja burbuja-ia">
-              <p className="burbuja-autor">Asistente Syntropy</p>
-              <p className="burbuja-texto"><span className="puntos" aria-label="Pensando"><i /><i /><i /></span> Leyendo los resultados calculados…</p>
-            </div>
-          )}
-          <div ref={final} />
-        </div>
-        <form className="chat-formulario" onSubmit={(e) => { e.preventDefault(); preguntar(pregunta); }}>
-          <textarea
-            value={pregunta} onChange={(e) => setPregunta(e.target.value)} rows={2} maxLength={2000}
-            placeholder="Escribe tu pregunta…" aria-label="Tu pregunta"
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); preguntar(pregunta); } }}
-          />
-          <button type="submit" className="boton boton-primario" disabled={pensando || !pregunta.trim()}>Preguntar</button>
+      <Tarjeta>
+        <form className="formulario" onSubmit={(e) => { e.preventDefault(); enviar(); }}>
+          <label className="campo" htmlFor="pregunta"><span>Su pregunta</span>
+            <textarea id="pregunta" rows={3} maxLength={1000} value={pregunta} onChange={(e) => setPregunta(e.target.value)} placeholder="Ej.: ¿Por qué cambió el líder de Construcción?" />
+          </label>
+          <div className="chips">
+            {SUGERENCIAS.map((s) => <button key={s} type="button" className="chip" onClick={() => enviar(s)} disabled={enviando}>{s}</button>)}
+          </div>
+          <div className="fila-botones">
+            <button type="submit" className="boton" disabled={enviando || !pregunta.trim()}>{enviando ? 'Pensando…' : 'Preguntar'}</button>
+          </div>
         </form>
+        <Aviso error={error} />
       </Tarjeta>
+      {historial.map((h, i) => (
+        <Tarjeta key={historial.length - i} titulo={h.pregunta} subtitulo={`${mes(h.fecha)}${h.segundos ? ` · ${h.segundos} s` : ''}`}>
+          {!h.disponible && <Aviso tipo="info">El asistente no está disponible en esta instalación.</Aviso>}
+          <p className="respuesta-ia">{h.respuesta}</p>
+          <p className="nota">Respuesta generada por IA a partir de resultados calculados. Verifique las cifras en Rankings. Datos ficticios.</p>
+        </Tarjeta>
+      ))}
     </>
   );
 }

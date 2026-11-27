@@ -1,10 +1,12 @@
 {
-  "name": "syntropy-rankings-sbp",
-  "version": "1.0.0",
+  "name": "rankings-credito-sbp",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Syntropy · Plataforma interactiva de rankings de crédito y análisis bancario (Hackathon SBP 2026)",
-  "engines": { "node": ">=20.19" },
+  "description": "Plataforma interactiva de rankings de crédito y análisis bancario (Hackathon SBP 2026) — versión paralela sobre el contrato docs/api.md",
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "configurar": "node servidor/configurar.js",
     "build": "vite build",
@@ -16,9 +18,8 @@
     "exportar": "node motor/cli.js datos/reto exportaciones"
   },
   "dependencies": {
-    "@xyflow/react": "13.0.3",
+    "@anthropic-ai/sdk": "^1.14.0",
     "echarts": "6.1.0",
-    "echarts-for-react": "3.1.0",
     "express": "5.3.0",
     "multer": "2.5.0",
     "react": "19.3.1",

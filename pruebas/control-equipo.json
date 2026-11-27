@@ -1,0 +1,6 @@
+{
+  "_nota": "Cifras de control publicadas por la verificación independiente en Python del repositorio del equipo (verificacion/README.md). Solo las usan las pruebas, nunca la aplicación.",
+  "20260731": { "cascada": { "E1": 20, "E2": 886, "E3": 48, "E4": 42, "universo": 24004 }, "saldo_universo_centavos": "434239166385" },
+  "20260831": { "cascada": { "E1": 25, "E2": 967, "E3": 52, "E4": 46, "universo": 26410 }, "saldo_universo_centavos": "473351038280" },
+  "20260930": { "cascada": { "E1": 30, "E2": 1058, "E3": 58, "E4": 52, "universo": 28802 }, "saldo_universo_centavos": "515210385027" }
+}

@@ -1,7 +1,17 @@
 node_modules/
 dist/
-.env
-datos-locales/
 exportaciones/
+datos-locales/
+salida-referencia/
+coverage/
 __pycache__/
 *.pyc
+.env
+.env.*
+!.env.example
+.claude/
+*.log
+.DS_Store
+Thumbs.db
+# Copias sueltas de los datos fuera de datos/reto (la carpeta oficial del paquete)
+/datos/*.csv

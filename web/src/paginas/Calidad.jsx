@@ -1,181 +1,113 @@
-// Calidad de datos: la cascada de exclusiones E1–E4, la ecuación que debe cuadrar,
-// las reconciliaciones, las alertas y la lista trazable de filas excluidas.
+// Calidad de datos (perfil analista): cascada E1→E4, reconciliaciones, alertas y filas excluidas.
 import { useState } from 'react';
-import { api } from '../api.js';
-import { useApp, useDatos } from '../contexto.jsx';
-import { Carga } from '../componentes/Estados.jsx';
-import { BotonDescarga, EncabezadoPagina, Insignia, Leyenda, Pestanas, Tarjeta } from '../componentes/Comunes.jsx';
-import Grafico from '../componentes/Grafico.jsx';
-import { opcionSankey } from '../graficos.js';
-import { entero, etiquetaPeriodo, monto } from '../formato.js';
+import { useApp } from '../contexto.jsx';
+import { useApi, qs, urlExportar } from '../api.js';
+import { Aviso, BotonDescarga, Cargando, Selector, Tabla, Tarjeta } from '../componentes/Comunes.jsx';
+import { dinero, fechaHora, mes, numero } from '../formato.js';
 
 const FILTROS = [
-  { id: 'E1', nombre: 'Duplicados', regla: 'Número de préstamo repetido en el período: se conserva la primera fila del archivo.' },
-  { id: 'E2', nombre: 'Destino extranjero', regla: 'Destino distinto de «L» (local).' },
-  { id: 'E3', nombre: 'Saldo no positivo', regla: 'Saldo menor o igual a 0.' },
-  { id: 'E4', nombre: 'Actividad no catalogada', regla: 'Tipo de actividad que no existe en el catálogo CINU/SB109.' },
+  { id: 'E1', nombre: 'Duplicados', regla: 'Numero_Prestamo repetido en el período: se conserva la primera aparición.' },
+  { id: 'E2', nombre: 'Destino extranjero', regla: 'Destino distinto de «L».' },
+  { id: 'E3', nombre: 'Saldo no positivo', regla: 'Saldo igual a 0 o negativo.' },
+  { id: 'E4', nombre: 'Actividad no catalogada', regla: 'Tipo_Actividad no existe en el catálogo CINU/SB109.' },
 ];
 
 export default function Calidad() {
-  const { meta, fecha } = useApp();
-  const estado = useDatos(() => (fecha ? api.calidad(fecha) : null), [fecha]);
+  const { fecha } = useApp();
+  const [filtro, setFiltro] = useState(null);
+  const [pagina, setPagina] = useState(1);
+  const cal = useApi(fecha ? `/calidad${qs({ fecha })}` : null);
+  const exc = useApi(fecha ? `/excluidas${qs({ fecha, filtro, pagina })}` : null);
+
+  if (cal.error) return <Aviso error={cal.error} />;
+  if (!cal.datos) return <Cargando />;
+  const c = cal.datos;
+  let quedan = c.filas_leidas;
+  const paginas = exc.datos ? Math.max(1, Math.ceil(exc.datos.total / exc.datos.por_pagina)) : 1;
 
   return (
     <>
-      <EncabezadoPagina titulo="Calidad de datos" subtitulo={`Exclusiones en cascada y controles de reconciliación · ${etiquetaPeriodo(fecha, meta)}`}>
-        <BotonDescarga tipo="calidad">Reporte de calidad (CSV)</BotonDescarga>
-        <BotonDescarga tipo="excluidas" fecha={fecha}>Filas excluidas (CSV)</BotonDescarga>
-      </EncabezadoPagina>
-      <Carga estado={estado} filas={10}>
-        {(c) => {
-          const excluidas = c.cascada.E1 + c.cascada.E2 + c.cascada.E3 + c.cascada.E4;
-          let quedan = c.filas_leidas;
-          return (
-            <>
-              <div className={`ecuacion ${c.cuadra ? 'ecuacion-ok' : 'ecuacion-mal'}`} role="status">
-                <span className="ecuacion-titulo">{c.cuadra ? '✓ Cuadra' : '✗ No cuadra'}</span>
-                <span className="ecuacion-cuerpo num">
-                  <b>{entero(c.filas_leidas)}</b> filas leídas = <b>{entero(c.cascada.E1)}</b> E1 + <b>{entero(c.cascada.E2)}</b> E2 + <b>{entero(c.cascada.E3)}</b> E3 + <b>{entero(c.cascada.E4)}</b> E4 + <b>{entero(c.universo)}</b> universo local válido
-                </span>
-                <span className="ecuacion-pie">Archivo: {c.archivo} · Saldo del universo: {monto(c.saldo_universo)} u.m.</span>
-              </div>
+      <div className="titulo-pagina">
+        <h1>Calidad de datos · {mes(c.fecha)}</h1>
+        <p>Archivo <b>{c.archivo}</b>, procesado {fechaHora(c.cargado)}. Cada fila excluida se cuenta una sola vez, en el primer filtro que incumple.</p>
+      </div>
 
-              <div className="rejilla-dos">
-                <Tarjeta titulo="Recorrido de las filas" subtitulo="Cada fila excluida cuenta una sola vez, en el primer filtro que no cumple" id="sankey">
-                  <Grafico opcion={opcionSankey(c)} alto={340} etiqueta="Diagrama de flujo de las filas por los filtros E1 a E4" />
-                </Tarjeta>
-                <Tarjeta titulo="Cascada oficial E1–E4" subtitulo={`${entero(excluidas)} filas excluidas en total`} id="cascada">
-                  <table className="tabla">
-                    <thead><tr><th scope="col">Filtro</th><th scope="col">Regla</th><th scope="col" className="numerica">Excluidas</th><th scope="col" className="numerica">Quedan</th></tr></thead>
-                    <tbody>
-                      <tr><th scope="row">—</th><td>Filas leídas del archivo</td><td className="numerica" /><td className="numerica num">{entero(c.filas_leidas)}</td></tr>
-                      {FILTROS.map((f) => {
-                        quedan -= c.cascada[f.id];
-                        return (
-                          <tr key={f.id}>
-                            <th scope="row"><span className="filtro-id">{f.id}</span> {f.nombre}</th>
-                            <td className="regla-texto">{f.regla}</td>
-                            <td className="numerica num">{entero(c.cascada[f.id])}</td>
-                            <td className="numerica num">{entero(quedan)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot><tr><th scope="row" colSpan={3}>Universo local válido</th><th className="numerica num">{entero(c.universo)}</th></tr></tfoot>
-                  </table>
-                  {c.independientes && (
-                    <details className="detalles">
-                      <summary>Conteo independiente por regla (informativo, no oficial)</summary>
-                      <p className="nota">Cuántas filas incumplen cada regla por sí sola, sin cascada. Una fila puede contar en varias.</p>
-                      <ul className="lista-simple">
-                        {FILTROS.map((f) => <li key={f.id}><span className="filtro-id">{f.id}</span> {f.nombre}: <b className="num">{entero(c.independientes[f.id])}</b></li>)}
-                      </ul>
-                    </details>
-                  )}
-                </Tarjeta>
-              </div>
+      <Tarjeta
+        titulo="Exclusiones en cascada"
+        subtitulo={<>Filas leídas = E1 + E2 + E3 + E4 + universo local válido → <b className={c.cuadra ? 'ok' : 'mal'}>{c.cuadra ? '✔ cuadra' : '✘ no cuadra'}</b></>}
+        acciones={<>
+          <BotonDescarga chico href={urlExportar('calidad', { fecha })}>Reporte de calidad (CSV)</BotonDescarga>
+          <BotonDescarga chico href={urlExportar('excluidas', { fecha })}>Filas excluidas (CSV)</BotonDescarga>
+        </>}
+      >
+        <ol className="cascada">
+          <li className="paso inicio"><span className="paso-num">{numero(c.filas_leidas)}</span><span className="paso-etq">filas leídas</span></li>
+          {FILTROS.map((f) => {
+            quedan -= c.cascada[f.id];
+            return (
+              <li key={f.id} className="paso">
+                <span className="paso-id">{f.id}</span>
+                <span className="paso-num menos">−{numero(c.cascada[f.id])}</span>
+                <span className="paso-etq">{f.nombre}</span>
+                <span className="paso-regla">{f.regla}</span>
+                <span className="paso-quedan">quedan {numero(quedan)}</span>
+              </li>
+            );
+          })}
+          <li className="paso fin"><span className="paso-num">{numero(c.universo)}</span><span className="paso-etq">universo local válido</span><span className="paso-regla">Saldo: {dinero(c.saldo_universo)}</span></li>
+        </ol>
+      </Tarjeta>
 
-              <div className="rejilla-dos">
-                <Tarjeta titulo="Reconciliaciones" subtitulo="Los totales deben cuadrar al centavo" id="reconciliaciones">
-                  <ul className="controles">
-                    {c.reconciliaciones.map((r) => (
-                      <li key={r.id} className={r.ok ? 'control-ok' : 'control-mal'}>
-                        <span className="control-icono" aria-hidden="true">{r.ok ? '✓' : '✗'}</span>
-                        <div>
-                          <p className="control-titulo"><span className="filtro-id">{r.id}</span> {r.nombre}</p>
-                          <p className="nota">{entero(r.revisados)} combinaciones revisadas · {entero(r.diferencias)} diferencias</p>
-                        </div>
-                      </li>
-                    ))}
-                    {c.esquema && (
-                      <li className={c.esquema.ok ? 'control-ok' : 'control-mal'}>
-                        <span className="control-icono" aria-hidden="true">{c.esquema.ok ? '✓' : '✗'}</span>
-                        <div>
-                          <p className="control-titulo">Esquema del archivo: {c.esquema.columnas} columnas en el orden del diccionario</p>
-                          {c.esquema.problemas?.length > 0 && <ul className="lista-simple">{c.esquema.problemas.map((p, i) => <li key={i}>{p}</li>)}</ul>}
-                        </div>
-                      </li>
-                    )}
-                  </ul>
-                </Tarjeta>
-                <Tarjeta titulo="Alertas de calidad" subtitulo="Se informan, pero no excluyen filas" id="alertas">
-                  {c.alertas.length === 0 ? <p className="nota">Sin alertas en este período.</p> : (
-                    <ul className="alertas">
-                      {c.alertas.map((a, i) => (
-                        <li key={i} className={`alerta alerta-${a.severidad}`}>
-                          <Insignia tono={a.severidad === 'alta' ? 'peligro' : a.severidad === 'media' ? 'aviso' : 'neutro'}>{a.severidad}</Insignia>
-                          <span>{a.texto}</span>
-                          {a.cantidad != null && <b className="num">{entero(a.cantidad)}</b>}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Tarjeta>
-              </div>
+      <div className="dos-columnas">
+        <Tarjeta titulo="Reconciliaciones y controles" subtitulo="Se verifican al centavo en cada carga.">
+          <ul className="controles">
+            {c.reconciliaciones.map((r) => (
+              <li key={r.id} className={r.ok ? 'ok' : 'mal'}>
+                <span aria-hidden="true">{r.ok ? '✔' : '✘'}</span>
+                <span><b>{r.id}</b> · {r.nombre} <span className="tenue">({numero(r.revisados)} revisados, {r.diferencias} diferencias)</span></span>
+              </li>
+            ))}
+            <li className={c.esquema.ok ? 'ok' : 'mal'}><span aria-hidden="true">{c.esquema.ok ? '✔' : '✘'}</span><span><b>Esquema</b> · {c.esquema.columnas} columnas con los nombres y el orden del diccionario</span></li>
+          </ul>
+        </Tarjeta>
+        <Tarjeta titulo="Alertas e indicadores informativos">
+          {c.alertas.length === 0
+            ? <p className="ok">✔ Sin alertas de integridad referencial (bancos, facilidades SB21) ni de coherencia de CONSUMO.</p>
+            : <ul className="controles">{c.alertas.map((a) => <li key={a.texto} className="aviso"><span aria-hidden="true">⚠</span><span>{a.texto}</span></li>)}</ul>}
+          <h3>Conteo independiente de cada regla</h3>
+          <p className="nota">Cuántas filas incumplen cada regla por separado (una fila puede incumplir varias). No es el conteo oficial.</p>
+          <Tabla compacta columnas={[
+            { clave: 'id', titulo: 'Regla' }, { clave: 'nombre', titulo: 'Descripción' },
+            { clave: 'cascada', titulo: 'En cascada (oficial)', num: true }, { clave: 'independiente', titulo: 'Independiente', num: true },
+          ]} filas={FILTROS.map((f) => ({ ...f, cascada: numero(c.cascada[f.id]), independiente: numero(c.independientes[f.id]) }))} claveFila={(f) => f.id} />
+          <p className="nota">Créditos personales con facilidad 07 reclasificados a Tarjeta: <b>{numero(c.reclasificadas_sb21)}</b>.</p>
+        </Tarjeta>
+      </div>
 
-              <FilasExcluidas fecha={fecha} />
-            </>
-          );
-        }}
-      </Carga>
+      <Tarjeta
+        titulo="Filas excluidas (trazabilidad)"
+        subtitulo="«Fila» = número de fila de datos en el archivo (1 = primera fila después del encabezado)."
+        acciones={<Selector id="q-filtro" etiqueta="Filtro" valor={filtro} onChange={(v) => { setFiltro(v); setPagina(1); }} todos="Todos" opciones={FILTROS.map((f) => ({ valor: f.id, texto: `${f.id} · ${f.nombre}` }))} />}
+      >
+        {exc.error && <Aviso error={exc.error} />}
+        {!exc.datos ? <Cargando /> : (
+          <>
+            <Tabla compacta claveFila={(f) => `${f.fila}`} columnas={[
+              { clave: 'fila', titulo: 'Fila', num: true },
+              { clave: 'numero_prestamo', titulo: 'Número de préstamo' },
+              { clave: 'codigo_banco', titulo: 'Banco' },
+              { clave: 'filtro', titulo: 'Filtro' },
+              { clave: 'motivo', titulo: 'Motivo' },
+              { clave: 'saldo', titulo: 'Saldo', num: true },
+            ]} filas={exc.datos.filas} />
+            <div className="paginacion">
+              <button type="button" className="boton secundario chico" disabled={pagina <= 1} onClick={() => setPagina((p) => p - 1)}>← Anterior</button>
+              <span>Página {exc.datos.pagina} de {paginas} · {numero(exc.datos.total)} filas</span>
+              <button type="button" className="boton secundario chico" disabled={pagina >= paginas} onClick={() => setPagina((p) => p + 1)}>Siguiente →</button>
+            </div>
+          </>
+        )}
+      </Tarjeta>
     </>
-  );
-}
-
-function FilasExcluidas({ fecha }) {
-  const [filtro, setFiltro] = useState('');
-  const [pagina, setPagina] = useState(1);
-  const estado = useDatos(() => api.excluidas({ fecha, filtro, pagina }), [fecha, filtro, pagina]);
-
-  function cambiarFiltro(f) { setFiltro(f); setPagina(1); }
-
-  return (
-    <Tarjeta titulo="Filas excluidas (trazabilidad)" subtitulo="Cada fila con su número en el archivo y el motivo" id="excluidas">
-      <Pestanas
-        compactas etiqueta="Filtro" valor={filtro} alCambiar={cambiarFiltro}
-        opciones={[{ valor: '', texto: 'Todas' }, ...FILTROS.map((f) => ({ valor: f.id, texto: `${f.id} · ${f.nombre}` }))]}
-      />
-      <Carga estado={estado} filas={6}>
-        {(d) => {
-          const paginas = Math.max(1, Math.ceil(d.total / (d.por_pagina || 50)));
-          return (
-            <>
-              <div className="tabla-envoltura">
-                <table className="tabla tabla-compacta">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="numerica">Fila</th><th scope="col">Número de préstamo</th><th scope="col">Banco</th>
-                      <th scope="col">Filtro</th><th scope="col">Motivo</th><th scope="col">Destino</th>
-                      <th scope="col" className="numerica">Saldo</th><th scope="col">Tipo de actividad</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {d.filas.length === 0 && <tr><td colSpan={8} className="celda-vacia">No hay filas excluidas con este filtro.</td></tr>}
-                    {d.filas.map((f) => (
-                      <tr key={`${f.fila}-${f.filtro}`}>
-                        <td className="numerica num">{entero(f.fila)}</td>
-                        <td className="mono">{f.numero_prestamo}</td>
-                        <td>{f.codigo_banco}</td>
-                        <td><span className="filtro-id">{f.filtro}</span></td>
-                        <td>{f.motivo}</td>
-                        <td>{f.destino}</td>
-                        <td className="numerica num">{monto(f.saldo)}</td>
-                        <td className="mono">{f.tipo_actividad}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="paginacion">
-                <button type="button" className="boton boton-secundario boton-chico" disabled={pagina <= 1} onClick={() => setPagina((p) => p - 1)}>← Anterior</button>
-                <span className="num">Página {pagina} de {paginas} · {entero(d.total)} filas</span>
-                <button type="button" className="boton boton-secundario boton-chico" disabled={pagina >= paginas} onClick={() => setPagina((p) => p + 1)}>Siguiente →</button>
-              </div>
-              <Leyenda>«Fila» es el número de la fila de datos dentro del archivo (sin contar el encabezado).</Leyenda>
-            </>
-          );
-        }}
-      </Carga>
-    </Tarjeta>
   );
 }

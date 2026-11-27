@@ -1,134 +1,142 @@
-// Piezas pequeñas que se repiten en las páginas.
-import { useEffect, useRef } from 'react';
-import { urlExportar } from '../api.js';
-import { colorBanco } from '../tema.js';
-import { TIPOS_RANKING } from '../formato.js';
+// Piezas comunes de la interfaz.
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { pctSigno } from '../formato.js';
 
-export function EncabezadoPagina({ titulo, subtitulo, children }) {
+export function Tarjeta({ titulo, subtitulo, acciones, children, className = '', tabla }) {
+  const [verTabla, setVerTabla] = useState(false);
   return (
-    <div className="encabezado-pagina">
-      <div>
-        <h1>{titulo}</h1>
-        {subtitulo && <p className="subtitulo">{subtitulo}</p>}
-      </div>
-      {children && <div className="encabezado-acciones">{children}</div>}
-    </div>
-  );
-}
-
-export function Tarjeta({ titulo, subtitulo, acciones, children, className = '', id }) {
-  return (
-    <section className={`tarjeta ${className}`} aria-labelledby={titulo && id ? `${id}-titulo` : undefined}>
-      {(titulo || acciones) && (
-        <div className="tarjeta-cabecera">
+    <section className={`tarjeta ${className}`}>
+      {(titulo || acciones || tabla) && (
+        <header className="tarjeta-cab">
           <div>
-            {titulo && <h2 id={id ? `${id}-titulo` : undefined}>{titulo}</h2>}
-            {subtitulo && <p className="tarjeta-subtitulo">{subtitulo}</p>}
+            {titulo && <h2>{titulo}</h2>}
+            {subtitulo && <p className="sub">{subtitulo}</p>}
           </div>
-          {acciones && <div className="tarjeta-acciones">{acciones}</div>}
-        </div>
+          <div className="acciones">
+            {acciones}
+            {tabla && (
+              <button type="button" className="boton fantasma chico" onClick={() => setVerTabla((v) => !v)} aria-pressed={verTabla}>
+                {verTabla ? 'Ver gráfico' : 'Ver como tabla'}
+              </button>
+            )}
+          </div>
+        </header>
       )}
-      {children}
+      {tabla && verTabla ? tabla : children}
     </section>
   );
 }
 
-export function KPI({ titulo, valor, detalle, variacion, tendencia, ayuda }) {
+export function Cifra({ etiqueta, valor, detalle, delta, deltaBueno = true }) {
+  const n = delta === null || delta === undefined ? null : Number(delta);
+  const clase = n === null || n === 0 ? '' : (n > 0) === deltaBueno ? 'bien' : 'mal';
   return (
-    <div className="kpi" title={ayuda}>
-      <p className="kpi-titulo">{titulo}</p>
-      <p className="kpi-valor num">{valor}</p>
-      <div className="kpi-pie">
-        {variacion && <span className={`kpi-variacion ${tendencia || ''}`}>{variacion}</span>}
-        {detalle && <span className="kpi-detalle">{detalle}</span>}
-      </div>
+    <div className="cifra">
+      <span className="cifra-etq">{etiqueta}</span>
+      <strong className="cifra-val">{valor}</strong>
+      <span className="cifra-det">
+        {n !== null && <span className={`delta ${clase}`}>{n > 0 ? '▲' : n < 0 ? '▼' : '＝'} {pctSigno(delta)}</span>} {detalle}
+      </span>
     </div>
   );
 }
 
-export function InsigniaTipo({ tipo }) {
-  const t = TIPOS_RANKING[tipo];
-  if (!t) return null;
-  return <span className={`insignia ${t.clase}`}>{t.texto}</span>;
-}
-
-export function Insignia({ children, tono = 'neutro' }) {
-  return <span className={`insignia insignia-${tono}`}>{children}</span>;
-}
-
-export function PuntoBanco({ codigo }) {
-  return <span className="punto-banco" style={{ background: colorBanco(codigo) }} aria-hidden="true" />;
-}
-
-export function NombreBanco({ codigo, nombre }) {
+/** Cambio de posición: ▲ sube (verde) · ▼ baja (rojo) · = se mantiene. Siempre con símbolo y número, nunca solo color. */
+export function Cambio({ valor }) {
+  if (valor === null || valor === undefined) return <span className="tenue" title="Sin período anterior">—</span>;
+  if (valor === 0) return <span className="cambio igual" title="Se mantiene">＝</span>;
   return (
-    <span className="nombre-banco">
-      <PuntoBanco codigo={codigo} />
-      <span>{nombre}</span>
-      <span className="codigo-banco">{codigo}</span>
+    <span className={`cambio ${valor > 0 ? 'sube' : 'baja'}`} title={valor > 0 ? `Sube ${valor}` : `Baja ${-valor}`}>
+      {valor > 0 ? '▲' : '▼'} {Math.abs(valor)}
     </span>
   );
 }
 
-export function BotonDescarga({ tipo, fecha, children }) {
-  return (
-    <a className="boton boton-secundario boton-chico" href={urlExportar(tipo, fecha)} download>
-      <span aria-hidden="true">⤓</span> {children}
-    </a>
-  );
+export function Cargando({ texto = 'Cargando…' }) {
+  return <div className="estado-vacio" role="status"><span className="girador" aria-hidden="true" /> {texto}</div>;
 }
 
-// Pestañas accesibles (role=tablist)
-export function Pestanas({ opciones, valor, alCambiar, etiqueta, compactas }) {
+export function Aviso({ error, tipo = 'error', children }) {
+  if (!error && !children) return null;
   return (
-    <div className={`pestanas ${compactas ? 'pestanas-compactas' : ''}`} role="tablist" aria-label={etiqueta}>
-      {opciones.map((o) => (
-        <button
-          key={o.valor} type="button" role="tab" aria-selected={valor === o.valor}
-          className={`pestana ${valor === o.valor ? 'activa' : ''}`} onClick={() => alCambiar(o.valor)}
-        >
-          {o.texto}
-          {o.extra}
-        </button>
-      ))}
+    <div className={`alerta ${tipo}`} role={tipo === 'error' ? 'alert' : 'status'}>
+      {error ? error.message : children}
+      {error?.detalles?.length > 0 && <ul>{error.detalles.map((d) => <li key={d}>{d}</li>)}</ul>}
     </div>
   );
 }
 
-// Panel que se desliza desde la derecha (detalle de un banco, de un nodo del diagrama…)
-export function PanelLateral({ titulo, abierto, alCerrar, children }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!abierto) return undefined;
-    ref.current?.focus();
-    const alTeclear = (e) => { if (e.key === 'Escape') alCerrar(); };
-    window.addEventListener('keydown', alTeclear);
-    return () => window.removeEventListener('keydown', alTeclear);
-  }, [abierto, alCerrar]);
-  if (!abierto) return null;
+export function SinPermiso({ perfil }) {
   return (
-    <>
-      <button type="button" className="velo velo-lateral" aria-label="Cerrar panel" onClick={alCerrar} />
-      <aside className="panel-lateral" role="dialog" aria-modal="true" aria-label={titulo} tabIndex={-1} ref={ref}>
-        <div className="panel-lateral-cabecera">
-          <h2>{titulo}</h2>
-          <button type="button" className="boton-cerrar" onClick={alCerrar} aria-label="Cerrar">×</button>
-        </div>
-        <div className="panel-lateral-cuerpo">{children}</div>
-      </aside>
-    </>
+    <div className="tarjeta bloqueo">
+      <h2>Sección restringida</h2>
+      <p>Esta sección es para el perfil <b>{perfil}</b>. Inicie sesión con el botón «Entrar» de la parte superior.</p>
+      <Link to="/" className="boton">Volver al panel</Link>
+    </div>
   );
 }
 
-export function Campo({ etiqueta, children, ancho }) {
+export function Insignia({ tipo, children }) {
+  return <span className={`insignia ${tipo ?? ''}`}>{children}</span>;
+}
+
+export function Selector({ etiqueta, valor, onChange, opciones, todos, id }) {
   return (
-    <label className={`campo ${ancho ? 'campo-ancho' : ''}`}>
+    <label className="campo" htmlFor={id}>
       <span>{etiqueta}</span>
-      {children}
+      <select id={id} value={valor ?? ''} onChange={(e) => onChange(e.target.value || null)}>
+        {todos && <option value="">{todos}</option>}
+        {opciones.map((o) => <option key={o.valor} value={o.valor}>{o.texto}</option>)}
+      </select>
     </label>
   );
 }
 
-export function Leyenda({ children }) {
-  return <p className="leyenda">{children}</p>;
+/**
+ * Tabla ordenable. columnas: [{ clave, titulo, num?, render?(fila), orden?(fila) }]
+ */
+export function Tabla({ columnas, filas, inicial, claveFila, resaltar, vacia = 'Sin datos.', compacta, pie }) {
+  const [orden, setOrden] = useState(inicial ?? { clave: null, asc: true });
+  const ordenadas = useMemo(() => {
+    if (!orden.clave) return filas;
+    const col = columnas.find((c) => c.clave === orden.clave);
+    const valor = col?.orden ?? ((f) => f[orden.clave]);
+    return [...filas].sort((a, b) => {
+      const x = valor(a), y = valor(b);
+      const r = x === y ? 0 : x === null || x === undefined ? 1 : y === null || y === undefined ? -1 : x < y ? -1 : 1;
+      return orden.asc ? r : -r;
+    });
+  }, [filas, orden, columnas]);
+  const clic = (c) => setOrden((o) => ({ clave: c.clave, asc: o.clave === c.clave ? !o.asc : !c.num }));
+  return (
+    <div className="tabla-envoltura">
+      <table className={`tabla ${compacta ? 'compacta' : ''}`}>
+        <thead>
+          <tr>
+            {columnas.map((c) => (
+              <th key={c.clave} className={c.num ? 'num' : ''} aria-sort={orden.clave === c.clave ? (orden.asc ? 'ascending' : 'descending') : 'none'}>
+                <button type="button" onClick={() => clic(c)} title="Ordenar">
+                  {c.titulo}<span className="flecha" aria-hidden="true">{orden.clave === c.clave ? (orden.asc ? ' ↑' : ' ↓') : ''}</span>
+                </button>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {ordenadas.length === 0 && <tr><td colSpan={columnas.length} className="tenue">{vacia}</td></tr>}
+          {ordenadas.map((f, i) => (
+            <tr key={claveFila ? claveFila(f) : i} className={resaltar?.(f) ? 'resaltada' : ''}>
+              {columnas.map((c) => <td key={c.clave} className={c.num ? 'num' : ''}>{c.render ? c.render(f) : f[c.clave]}</td>)}
+            </tr>
+          ))}
+        </tbody>
+        {pie && <tfoot>{pie}</tfoot>}
+      </table>
+    </div>
+  );
+}
+
+export function BotonDescarga({ href, children, chico }) {
+  return <a className={`boton secundario ${chico ? 'chico' : ''}`} href={href} download>⤓ {children}</a>;
 }

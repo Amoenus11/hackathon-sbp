@@ -1,368 +1,196 @@
-// API de la plataforma (Express). Contrato completo en docs/api.md.
+// Servidor HTTP: implementa el contrato docs/api.md sobre Express 5.
 import express from 'express';
 import multer from 'multer';
 import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { crearEstado } from './estado.js';
-import { crearSesiones, usuariosDesdeEntorno, PERMISOS, NOMBRE_PERFIL } from './sesion.js';
-import { preguntarIA } from './ia.js';
-import { crearCuentas } from './cuentas.js';
-import {
-  ORDEN_RANKINGS, TIPO_RANKING, TITULO_RANKING, VERSION_MOTOR, ErrorDatos,
-  etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje,
-} from '../motor/motor.js';
-import { generar } from '../motor/exportar.js';
+import { join } from 'node:path';
+import { Estado, ErrorConsulta } from './estado.js';
+import { COOKIE, Sesiones, leerCookie, leerUsuarios, verificarClave, nivel, PERMISOS } from './acceso.js';
+import * as vistas from './vistas.js';
+import { reporteHtml } from './reporte.js';
+import { preguntar } from './ia.js';
+import { ErrorValidacion, catalogosParaApi } from '../motor/catalogos.js';
+import { exportarCsv, TIPOS_EXPORTACION } from '../motor/exportar.js';
 
-const COOKIE = 'syntropy_sesion';
-const FUENTE = 'Paquete Hackathon SBP 2026 · Átomo 03 (AT03) sintético';
-const AVISO = 'Datos 100 % ficticios con fines de demostración. No representan al sistema bancario panameño ni constituyen opinión formal de la SBP.';
-
-export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpetaReto = 'datos/reto', carpetaWeb = 'dist' } = {}) {
-  const estado = crearEstado({ carpetaReto, carpetaLocal, inicial: entorno.CARGA_INICIAL || 'todos' });
-  const usuariosEnv = usuariosDesdeEntorno(entorno);
-  const cuentas = entorno.CUENTAS ? crearCuentas(carpetaLocal, entorno.CUENTAS, entorno.URL_PUBLICA || '') : null;
-  const sesiones = crearSesiones((n) => usuariosEnv.get(n) || cuentas?.lista().find((c) => c.usuario === n));
-  if (entorno.RESULTADOS_DIR) estado.publicarEn(entorno.RESULTADOS_DIR);
-  const seguro = entorno.COOKIE_SEGURA === '1';
+/**
+ * @param {{ carpetaDatos: string, carpetaLocal: string, carpetaWeb?: string }} opciones
+ */
+export function crearApp({ carpetaDatos, carpetaLocal, carpetaWeb }) {
+  const estado = new Estado({ carpetaDatos, carpetaLocal }).iniciar();
+  const sesiones = new Sesiones();
+  const rutaUsuarios = join(carpetaLocal, 'usuarios.json');
   const app = express();
   app.disable('x-powered-by');
-  if (entorno.DETRAS_DE_PROXY === '1') app.set('trust proxy', 1);
+  app.locals.estado = estado;
 
-  // --- Cabeceras de seguridad
+  // ------------------------------------------------------------------ seguridad básica
   app.use((req, res, next) => {
     res.set({
-      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
       'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'no-referrer',
+      'Referrer-Policy': 'same-origin',
       'X-Frame-Options': 'DENY',
+      'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'",
     });
-    next();
-  });
-  app.use(express.json({ limit: '1mb' }));
-
-  // --- Sesión: público por defecto
-  app.use((req, res, next) => {
-    const token = (req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).find(([k]) => k === COOKIE)?.[1];
+    const token = leerCookie(req, COOKIE);
+    req.sesion = sesiones.leer(token) ?? { usuario: null, perfil: 'publico' };
     req.token = token;
-    req.sesion = sesiones.leer(token);
-    req.perfil = req.sesion?.perfil || 'publico';
-    req.usuario = req.sesion?.usuario || null;
-    if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.path.startsWith('/api/') && req.get('X-Syntropy') !== '1') {
-      return res.status(403).json({ error: 'Petición no permitida.' });
+    next();
+  });
+  app.use('/api', express.json({ limit: '100kb' }));
+  // Toda escritura exige la cabecera X-Syntropy: 1 (un formulario de otro sitio no puede enviarla)
+  app.use('/api', (req, res, next) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('X-Syntropy') !== '1') {
+      return res.status(403).json({ error: 'Falta la cabecera X-Syntropy: 1.' });
     }
     next();
   });
-  const permiso = (nombre) => (req, res, next) => (PERMISOS[req.perfil].includes(nombre)
-    ? next()
-    : res.status(req.perfil === 'publico' ? 401 : 403).json({ error: `Esta opción es para ${nombre === 'cargar' || nombre === 'parametros' || nombre === 'registro' || nombre === 'perfiles' ? 'administradores' : 'analistas y administradores'}. Inicia sesión con un perfil autorizado.` }));
-  const registrar = (req, accion, detalle) => estado.registrar(req.usuario, req.perfil, accion, detalle);
 
-  // --- Ayudantes de consulta
-  const fechaDe = (req) => {
-    const f = String(req.query.fecha || estado.ultimo()?.fecha || '');
-    return estado.periodo(f);
+  const exige = (perfil) => (req, res, next) => {
+    if (nivel(req.sesion.perfil) >= nivel(perfil)) return next();
+    const quien = perfil === 'administrador' ? 'administrador' : 'analista o administrador';
+    res.status(req.sesion.usuario ? 403 : 401).json({ error: `Esta opción es solo para el perfil ${quien}.` });
   };
-  const rankingDe = (req, obligatorio = true) => {
-    const r = String(req.query.ranking || '').toUpperCase();
-    if (!r && !obligatorio) return null;
-    if (!ORDEN_RANKINGS.includes(r)) throw new ErrorDatos(`Ranking desconocido. Usa uno de: ${ORDEN_RANKINGS.join(', ')}.`);
-    return r;
-  };
-  const filasRanking = (p, macro) => {
-    const anterior = estado.anteriorDe(p.fecha);
-    const previo = anterior ? new Map(anterior.rankings[macro].map((f) => [f.codigo_banco, f])) : null;
-    return p.rankings[macro].map((f) => {
-      const a = previo?.get(f.codigo_banco);
-      return {
-        posicion: f.posicion, codigo_banco: f.codigo_banco, banco: f.banco, saldo_actividad: aTexto(f.saldo_actividad),
-        total_cartera: aTexto(f.total_cartera), ponderacion_pct: f.ponderacion_pct, operaciones: f.operaciones,
-        participacion_pct: f.participacion_pct,
-        posicion_anterior: a ? a.posicion : null, cambio: a ? a.posicion - f.posicion : null,
-        saldo_anterior: a ? aTexto(a.saldo_actividad) : null,
-        var_saldo_pct: a ? porcentaje(f.saldo_actividad - a.saldo_actividad, a.saldo_actividad) : null,
-      };
-    });
-  };
-  const resumenPeriodo = (p) => ({
-    fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), corta: etiquetaCorta(p.fecha), archivo: p.archivo, cargado: p.cargado, filas_leidas: p.filas_leidas,
-  });
+  const q = (req, k) => (typeof req.query[k] === 'string' && req.query[k] !== '' ? req.query[k] : undefined);
 
-  // --- Sesión
-  app.get('/api/sesion', (req, res) => res.json({ perfil: req.perfil, usuario: req.usuario }));
+  // ------------------------------------------------------------------ sesión
+  app.get('/api/sesion', (req, res) => res.json({ perfil: req.sesion.perfil, usuario: req.sesion.usuario }));
+
   app.post('/api/sesion', (req, res) => {
-    const r = sesiones.entrar(req.body?.usuario, req.body?.clave);
-    if (r.error) {
-      estado.registrar(String(req.body?.usuario || '').slice(0, 40), 'publico', 'sesion_fallida', 'Usuario o contraseña incorrectos');
-      return res.status(401).json({ error: r.error });
+    const usuario = String(req.body?.usuario ?? '').trim().toLowerCase();
+    const clave = String(req.body?.clave ?? '');
+    if (!usuario || !clave) return res.status(400).json({ error: 'Escriba usuario y contraseña.' });
+    const espera = sesiones.bloqueado(usuario);
+    if (espera) return res.status(429).json({ error: `Demasiados intentos fallidos. Espere ${espera} segundos.` });
+    const cuenta = leerUsuarios(rutaUsuarios).find((u) => u.usuario === usuario);
+    if (!cuenta || !verificarClave(clave, cuenta)) {
+      sesiones.fallo(usuario);
+      estado.registrar({ usuario, perfil: 'publico' }, 'inicio_sesion_fallido', '');
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
     }
-    res.cookie(COOKIE, r.token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000, ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
-    estado.registrar(r.usuario, r.perfil, 'iniciar_sesion', `Perfil ${NOMBRE_PERFIL[r.perfil]}`);
-    res.json({ perfil: r.perfil, usuario: r.usuario });
+    sesiones.exito(usuario);
+    if (req.token) sesiones.cerrar(req.token);
+    const token = sesiones.crear(cuenta.usuario, cuenta.perfil);
+    const segura = req.secure ? '; Secure' : '';
+    res.set('Set-Cookie', `${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${segura}`);
+    estado.registrar({ usuario: cuenta.usuario, perfil: cuenta.perfil }, 'inicio_sesion', '');
+    res.json({ perfil: cuenta.perfil, usuario: cuenta.usuario });
   });
+
   app.delete('/api/sesion', (req, res) => {
-    if (req.sesion) registrar(req, 'cerrar_sesion', '');
-    sesiones.salir(req.token);
-    res.clearCookie(COOKIE, { path: '/', ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
+    if (req.token) sesiones.cerrar(req.token);
+    if (req.sesion.usuario) estado.registrar(req.sesion, 'cierre_sesion', '');
+    res.set('Set-Cookie', `${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`);
     res.json({ perfil: 'publico', usuario: null });
   });
 
-  // --- Contraseña de un solo uso (versión en internet)
-  app.use('/estatico', express.static(resolve('servidor/estatico'), { maxAge: '1h' }));
-  app.get('/revelar', (req, res) => res.set('Cache-Control', 'no-store').sendFile(resolve('servidor/estatico/revelar.html')));
-  app.post('/api/revelar', (req, res) => {
-    const r = cuentas?.revelar(String(req.body?.token || '').slice(0, 100));
-    if (!r) return res.status(400).json({ error: 'El enlace no es válido o ya se usó.' });
-    estado.registrar(r.usuario, r.perfil, 'revelar_contrasena', 'Enlace de un solo uso');
-    res.json({ usuario: r.usuario, clave: r.clave });
+  // ------------------------------------------------------------------ consulta (todos los perfiles)
+  app.get('/api/meta', (req, res) => res.json(vistas.meta(estado)));
+  app.get('/api/panel', (req, res) => res.json(vistas.panel(estado, q(req, 'fecha'))));
+  app.get('/api/rankings', (req, res) => res.json(vistas.rankings(estado, q(req, 'fecha'), q(req, 'ranking'))));
+  app.get('/api/matriz', (req, res) => res.json(vistas.matriz(estado, q(req, 'fecha'))));
+  app.get('/api/historia', (req, res) => res.json(vistas.historia(estado, q(req, 'ranking'))));
+  app.get('/api/desglose', (req, res) => res.json(vistas.desglose(estado, q(req, 'fecha'), q(req, 'ranking'), q(req, 'banco'))));
+  app.get('/api/bancos', (req, res) => res.json(vistas.bancos(estado, q(req, 'fecha'))));
+
+  // ------------------------------------------------------------------ análisis (analista+)
+  app.get('/api/movimientos', exige('analista'), (req, res) => res.json(vistas.movimientos(estado, q(req, 'desde'), q(req, 'hasta'), q(req, 'ranking'))));
+  app.get('/api/calidad', exige('analista'), (req, res) => res.json(vistas.calidad(estado, q(req, 'fecha'))));
+  app.get('/api/excluidas', exige('analista'), (req, res) => res.json(vistas.excluidas(estado, q(req, 'fecha'), q(req, 'filtro'), q(req, 'pagina'))));
+  app.post('/api/ia', exige('analista'), async (req, res) => {
+    const r = await preguntar(estado, { pregunta: req.body?.pregunta, fecha: req.body?.fecha });
+    estado.registrar(req.sesion, 'consulta_ia', String(req.body?.pregunta ?? '').slice(0, 140));
+    res.json(r);
   });
 
-  // --- Terminal de Nathalia: Caddy pregunta aquí (forward_auth) antes de dejar pasar a /terminal/
-  // Cada terminal (nathalia.…, gui.…) indica en ?permitidos= quién puede entrar; además el usuario debe
-  // estar en TERMINAL_USUARIOS. Así una persona no puede abrir la terminal de otra.
-  const usuariosTerminal = String(entorno.TERMINAL_USUARIOS || '').split(',').map((u) => u.trim()).filter(Boolean);
-  app.get('/api/terminal/autorizar', (req, res) => {
-    const permitidos = String(req.query.permitidos || '').split(',').map((u) => u.trim()).filter(Boolean);
-    if (req.usuario && usuariosTerminal.includes(req.usuario) && permitidos.includes(req.usuario)) return res.status(200).end();
-    res.status(401).end();
+  // ------------------------------------------------------------------ exportaciones
+  const PUBLICAS = new Set(['rankings', 'desglose']);
+  app.get('/api/exportar/reporte.html', exige('analista'), (req, res) => {
+    const elegidos = q(req, 'rankings')?.split(',').filter(Boolean) ?? null;
+    const html = reporteHtml(estado, { fecha: q(req, 'fecha'), rankings: elegidos, banco: q(req, 'banco'), usuario: req.sesion.usuario });
+    const fecha = q(req, 'fecha') ?? estado.ultimo;
+    estado.registrar(req.sesion, 'descarga', `reporte_${fecha}.html`);
+    res.set('Content-Disposition', `${q(req, 'ver') ? 'inline' : 'attachment'}; filename="reporte_rankings_${fecha}.html"`);
+    res.type('html').send(html);
   });
 
-  // --- Metadatos
-  app.get('/api/meta', (req, res) => {
-    const c = estado.catalogos;
-    res.json({
-      periodos: estado.lista().map(resumenPeriodo),
-      ultimo: estado.ultimo()?.fecha || null,
-      rankings: ORDEN_RANKINGS.map((r) => ({ nombre: r, titulo: TITULO_RANKING[r], tipo: TIPO_RANKING[r], subactividades: c.subactividades[r] })),
-      bancos: c.bancos.map((b) => ({ codigo: b.codigo, nombre: b.nombre })),
-      fuente: FUENTE, aviso: AVISO, parametros: estado.parametros, permisos: PERMISOS, version_motor: VERSION_MOTOR,
-      perfil: req.perfil, usuario: req.usuario,
-    });
-  });
-
-  // --- Panel principal
-  app.get('/api/panel', (req, res) => {
-    const p = fechaDe(req);
-    const a = estado.anteriorDe(p.fecha);
-    const excluidas = p.filas_leidas - p.universo;
-    const concentracion = ORDEN_RANKINGS.map((macro) => {
-      const total = Number(p.totales_ranking[macro]);
-      const cuotas = p.rankings[macro].map((f) => (total ? (Number(f.saldo_actividad) / total) * 100 : 0));
-      const hhi = Math.round(cuotas.reduce((s, x) => s + x * x, 0));
-      const top3 = p.rankings[macro].slice(0, 3).reduce((s, f) => s + f.saldo_actividad, 0n);
-      return { ranking: macro, hhi, nivel: hhi < 1500 ? 'baja' : hhi <= 2500 ? 'moderada' : 'alta', top3_pct: porcentaje(top3, p.totales_ranking[macro]) };
-    });
-    res.json({
-      fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), fecha_anterior: a?.fecha || null,
-      kpis: {
-        cartera_total: aTexto(p.saldo_universo), cartera_total_anterior: a ? aTexto(a.saldo_universo) : null,
-        var_cartera_pct: a ? porcentaje(p.saldo_universo - a.saldo_universo, a.saldo_universo) : null,
-        operaciones: p.universo, operaciones_anterior: a?.universo ?? null, bancos: estado.catalogos.bancos.length,
-        filas_leidas: p.filas_leidas, excluidas, pct_excluidas: porcentaje(BigInt(excluidas), BigInt(p.filas_leidas)),
-      },
-      lideres: ORDEN_RANKINGS.map((macro) => {
-        const f = p.rankings[macro][0];
-        const la = a?.rankings[macro][0];
-        return {
-          ranking: macro, codigo_banco: f.codigo_banco, banco: f.banco, saldo: aTexto(f.saldo_actividad),
-          ponderacion_pct: f.ponderacion_pct, participacion_pct: f.participacion_pct,
-          lider_anterior: la ? { codigo_banco: la.codigo_banco, banco: la.banco } : null,
-          cambio_lider: Boolean(la && la.codigo_banco !== f.codigo_banco),
-        };
-      }),
-      composicion: ORDEN_RANKINGS.map((macro) => ({ ranking: macro, saldo: aTexto(p.totales_ranking[macro]), pct: porcentaje(p.totales_ranking[macro], p.saldo_universo) })),
-      destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 8).map(({ peso, ...x }) => x) : [],
-      indicadores: {
-        morosidad_pct: porcentaje(p.indicadores.mora, p.saldo_universo),
-        vencida_90_pct: porcentaje(p.indicadores.mora90, p.saldo_universo),
-        reclasificadas_sb21: p.indicadores.reclasificadas_sb21,
-        concentracion,
-      },
-    });
-  });
-
-  // --- Rankings y vistas derivadas
-  app.get('/api/rankings', (req, res) => {
-    const p = fechaDe(req);
-    const macro = rankingDe(req);
-    const a = estado.anteriorDe(p.fecha);
-    res.json({ fecha: p.fecha, ranking: macro, fecha_anterior: a?.fecha || null, total_ranking: aTexto(p.totales_ranking[macro]), filas: filasRanking(p, macro) });
-  });
-  app.get('/api/matriz', (req, res) => {
-    const p = fechaDe(req);
-    res.json({
-      fecha: p.fecha, rankings: ORDEN_RANKINGS,
-      bancos: estado.catalogos.bancos.map((b) => ({
-        codigo_banco: b.codigo, banco: b.nombre,
-        total_cartera: aTexto(p.bancos.find((x) => x.codigo_banco === b.codigo).total),
-        celdas: ORDEN_RANKINGS.map((macro) => {
-          const f = p.rankings[macro].find((x) => x.codigo_banco === b.codigo);
-          return { ranking: macro, saldo: aTexto(f.saldo_actividad), ponderacion_pct: f.ponderacion_pct, posicion: f.posicion };
-        }),
-      })),
-    });
-  });
-  app.get('/api/historia', (req, res) => {
-    const macro = rankingDe(req);
-    const lista = estado.lista();
-    res.json({
-      ranking: macro, periodos: lista.map((p) => p.fecha),
-      bancos: estado.catalogos.bancos.map((b) => ({
-        codigo_banco: b.codigo, banco: b.nombre,
-        posiciones: lista.map((p) => p.rankings[macro].find((f) => f.codigo_banco === b.codigo).posicion),
-        saldos: lista.map((p) => aTexto(p.rankings[macro].find((f) => f.codigo_banco === b.codigo).saldo_actividad)),
-      })),
-    });
-  });
-  app.get('/api/desglose', (req, res) => {
-    const p = fechaDe(req);
-    const macro = rankingDe(req);
-    const banco = req.query.banco ? String(req.query.banco) : null;
-    if (banco && !estado.catalogos.bancoPorCodigo.has(banco)) throw new ErrorDatos(`Banco desconocido: ${banco}.`);
-    res.json({ fecha: p.fecha, ranking: macro, filas: aJson(p.desglose[macro].filter((f) => !banco || f.codigo_banco === banco)) });
-  });
-
-  // --- Comparación entre períodos (analista+)
-  const comparacion = (req) => {
-    const lista = estado.lista();
-    if (lista.length < 2) throw new ErrorDatos('Se necesitan al menos dos períodos cargados para comparar.');
-    const hasta = estado.periodo(String(req.query.hasta || lista.at(-1).fecha));
-    const desde = estado.periodo(String(req.query.desde || estado.anteriorDe(hasta.fecha)?.fecha || lista[0].fecha));
-    if (desde.fecha >= hasta.fecha) throw new ErrorDatos('El período «desde» debe ser anterior a «hasta».');
-    return estado.comparar(desde, hasta);
-  };
-  app.get('/api/movimientos', permiso('comparar'), (req, res) => {
-    const c = comparacion(req);
-    const macro = rankingDe(req, false);
-    res.json({
-      desde: c.desde, hasta: c.hasta, regla: c.regla,
-      filas: aJson(c.filas.filter((f) => !macro || f.ranking === macro)),
-      explicaciones: c.explicaciones.filter((e) => !macro || e.ranking === macro).map((e) => e.texto),
-    });
-  });
-
-  // --- Calidad de datos
-  app.get('/api/calidad', (req, res) => {
-    const p = fechaDe(req);
-    res.json({
-      fecha: p.fecha, archivo: p.archivo, filas_leidas: p.filas_leidas, cascada: p.cascada, universo: p.universo,
-      saldo_universo: aTexto(p.saldo_universo), cuadra: p.cuadra, independientes: p.independientes,
-      reconciliaciones: p.reconciliaciones, alertas: p.alertas, esquema: p.esquema,
-      reclasificadas_sb21: p.indicadores.reclasificadas_sb21,
-    });
-  });
-  app.get('/api/excluidas', permiso('calidad'), (req, res) => {
-    const p = fechaDe(req);
-    const filtro = req.query.filtro ? String(req.query.filtro).toUpperCase() : null;
-    const porPagina = 50;
-    const pagina = Math.max(1, Number(req.query.pagina) || 1);
-    const todas = p.excluidas.filter((e) => !filtro || e.filtro === filtro);
-    res.json({ total: todas.length, pagina, por_pagina: porPagina, filas: todas.slice((pagina - 1) * porPagina, pagina * porPagina) });
-  });
-
-  // --- Exportaciones oficiales
   app.get('/api/exportar/:archivo', (req, res) => {
-    const tipo = String(req.params.archivo).replace(/\.csv$/, '');
-    if (!generar[tipo]) throw Object.assign(new Error('Exportación desconocida.'), { estado: 404 });
-    const publicas = ['rankings', 'desglose'];
-    if (!publicas.includes(tipo) && !PERMISOS[req.perfil].includes('exportar_todo')) {
-      return res.status(401).json({ error: 'Esta descarga es para analistas y administradores.' });
+    const m = /^([a-z]+)\.csv$/.exec(req.params.archivo);
+    const tipo = m?.[1];
+    if (!tipo || !TIPOS_EXPORTACION.includes(tipo)) return res.status(404).json({ error: `Exportación desconocida. Opciones: ${TIPOS_EXPORTACION.map((t) => `${t}.csv`).join(', ')}.` });
+    if (!PUBLICAS.has(tipo) && nivel(req.sesion.perfil) < nivel('analista')) {
+      return res.status(req.sesion.usuario ? 403 : 401).json({ error: 'Esta descarga es solo para los perfiles analista y administrador.' });
     }
-    const todos = estado.lista();
-    const periodos = req.query.fecha ? [estado.periodo(String(req.query.fecha))] : todos;
-    const comparaciones = [];
-    for (let k = 1; k < todos.length; k++) {
-      if (!req.query.fecha || todos[k].fecha === req.query.fecha) comparaciones.push(estado.comparar(todos[k - 1], todos[k]));
+    const fecha = q(req, 'fecha');
+    const periodos = fecha ? [estado.periodo(fecha)] : estado.periodos;
+    let comparaciones = estado.comparaciones;
+    if (tipo === 'movimientos') {
+      const desde = q(req, 'desde'), hasta = q(req, 'hasta');
+      if (desde || hasta) comparaciones = [estado.comparar(desde ?? estado.anterior(hasta ?? estado.ultimo)?.fecha, hasta ?? estado.ultimo)];
+      else if (fecha) comparaciones = comparaciones.filter((c) => c.hasta === fecha);
     }
-    const nombre = `${tipo}${req.query.fecha ? `_${req.query.fecha}` : ''}.csv`;
-    registrar(req, 'exportar', nombre);
-    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${nombre}"` });
-    res.send(generar[tipo](periodos, comparaciones));
+    const filtros = { ranking: q(req, 'ranking'), banco: q(req, 'banco'), filtro: q(req, 'filtro'), soloSignificativos: q(req, 'significativos') === '1' };
+    const csv = exportarCsv(tipo, { periodos, comparaciones, cat: estado.cat, filtros });
+    const nombre = `${tipo}${fecha ? `_${fecha}` : '_todos'}${filtros.ranking ? `_${filtros.ranking}` : ''}${filtros.banco ? `_${filtros.banco}` : ''}.csv`;
+    estado.registrar(req.sesion, 'descarga', nombre);
+    res.set('Content-Disposition', `attachment; filename="${nombre}"`);
+    res.type('text/csv; charset=utf-8').send(csv);
   });
 
-  // --- Catálogos y perfiles (consulta)
-  app.get('/api/catalogos', (req, res) => {
-    const c = estado.catalogos;
-    res.json({ cinu: c.listaCinu, sb21: c.listaSb21, bancos: c.bancos });
-  });
-  app.get('/api/perfiles', (req, res) => res.json({
-    perfiles: Object.entries(PERMISOS).map(([id, permisos]) => ({ id, nombre: NOMBRE_PERFIL[id], permisos })),
-  }));
-
-  // --- Administración
-  const subida = multer({ storage: multer.memoryStorage(), limits: { fileSize: 80 * 1024 * 1024, files: 1 } });
-  app.post('/api/periodos', permiso('cargar'), subida.single('archivo'), (req, res) => {
-    if (!req.file) throw new ErrorDatos('Adjunta un archivo CSV en el campo «archivo».');
-    const inicio = Date.now();
-    const { fechas, reemplazo } = estado.cargar(req.file.originalname, req.file.buffer, req.usuario);
-    const procesados = fechas.map((f) => estado.periodo(f));
-    let movimientos = 0;
-    let explicaciones = [];
-    const ultimo = procesados.at(-1);
-    const anterior = estado.anteriorDe(ultimo.fecha);
-    if (anterior) {
-      const c = estado.comparar(anterior, ultimo);
-      movimientos = c.filas.filter((f) => f.significativo).length;
-      explicaciones = c.explicaciones.map((e) => e.texto).slice(0, 10);
-    }
-    registrar(req, reemplazo ? 'actualizar_periodo' : 'cargar_periodo', `${req.file.originalname} · ${procesados.map((p) => `${p.fecha} (${p.filas_leidas} filas)`).join(', ')}`);
-    res.json({
-      procesados: procesados.map((p) => ({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), filas_leidas: p.filas_leidas, universo: p.universo, cascada: p.cascada, cuadra: p.cuadra })),
-      reemplazo, comparado_con: anterior?.fecha || null, movimientos_significativos: movimientos, explicaciones, milisegundos: Date.now() - inicio,
+  // ------------------------------------------------------------------ administración
+  const subida = multer({ storage: multer.memoryStorage(), limits: { fileSize: 60 * 1024 * 1024, files: 1 } });
+  app.post('/api/periodos', exige('administrador'), (req, res, next) => {
+    subida.single('archivo')(req, res, (err) => {
+      if (err) return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'El archivo supera 60 MB.' : `No se pudo recibir el archivo: ${err.message}` });
+      if (!req.file) return res.status(400).json({ error: 'Adjunte un archivo AT03 en el campo «archivo».' });
+      try {
+        const r = estado.cargarArchivo(req.file.originalname, req.file.buffer);
+        estado.registrar(req.sesion, 'cargar_periodo', `${req.file.originalname} · ${r.procesados.map((p) => `${p.fecha}: ${p.filas_leidas} filas, universo ${p.universo}`).join(' · ')}`);
+        res.json(r);
+      } catch (e) {
+        if (e instanceof ErrorValidacion) {
+          estado.registrar(req.sesion, 'carga_rechazada', `${req.file.originalname} · ${e.message}`);
+          return res.status(400).json({ error: e.message, detalles: e.detalles });
+        }
+        next(e);
+      }
     });
   });
-  app.delete('/api/periodos/:fecha', permiso('cargar'), (req, res) => {
-    estado.quitar(String(req.params.fecha));
-    registrar(req, 'quitar_periodo', req.params.fecha);
+
+  app.delete('/api/periodos/:fecha', exige('administrador'), (req, res) => {
+    estado.quitarPeriodo(req.params.fecha);
+    estado.registrar(req.sesion, 'quitar_periodo', req.params.fecha);
     res.json({ ok: true });
   });
-  app.get('/api/parametros', (req, res) => res.json(estado.parametros));
-  app.put('/api/parametros', permiso('parametros'), (req, res) => {
-    const nuevos = estado.fijarParametros(req.body || {});
-    registrar(req, 'parametros', JSON.stringify(nuevos));
-    res.json(nuevos);
-  });
-  app.get('/api/registro', permiso('registro'), (req, res) => res.json(estado.registro()));
 
-  // --- Asistente IA (explica resultados ya calculados)
-  app.post('/api/ia', permiso('asistente'), async (req, res, next) => {
-    try {
-      const pregunta = String(req.body?.pregunta || '').trim().slice(0, 1500);
-      if (!pregunta) throw new ErrorDatos('Escribe una pregunta.');
-      const p = fechaDe({ query: { fecha: req.body?.fecha } });
-      const a = estado.anteriorDe(p.fecha);
-      const contexto = {
-        aviso: AVISO, fuente: FUENTE, periodo: etiquetaPeriodo(p.fecha), periodo_anterior: a ? etiquetaPeriodo(a.fecha) : null,
-        unidad: 'unidades monetarias homogéneas',
-        calidad: { filas_leidas: p.filas_leidas, ...p.cascada, universo_local_valido: p.universo, saldo_universo: aTexto(p.saldo_universo) },
-        rankings: Object.fromEntries(ORDEN_RANKINGS.map((m) => [m, filasRanking(p, m).map((f) => ({ pos: f.posicion, banco: f.banco, saldo: f.saldo_actividad, ponderacion_pct: f.ponderacion_pct, cuota_pct: f.participacion_pct, cambio: f.cambio }))])),
-        movimientos_destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 15).map((e) => e.texto) : [],
-      };
-      const r = await preguntarIA(pregunta, contexto, { comando: entorno.CLAUDE_COMANDO || 'claude', asistenteUrl: entorno.ASISTENTE_URL });
-      registrar(req, 'consulta_ia', pregunta.slice(0, 120));
-      res.json(r);
-    } catch (e) { next(e); }
+  app.get('/api/parametros', exige('administrador'), (req, res) => res.json(estado.parametros));
+  app.put('/api/parametros', exige('administrador'), (req, res) => {
+    let p;
+    try { p = estado.cambiarParametros(req.body); } catch (e) { return res.status(400).json({ error: e.message }); }
+    estado.registrar(req.sesion, 'cambiar_parametros', JSON.stringify(p));
+    res.json(p);
   });
 
-  // --- Web (React compilada) y rutas del lado del cliente
-  const web = resolve(carpetaWeb);
-  if (existsSync(web)) app.use(express.static(web, { index: false, maxAge: '1h' }));
-  app.use((req, res, next) => {
-    if (req.method !== 'GET' || req.path.startsWith('/api/')) return next();
-    const indice = join(web, 'index.html');
-    if (!existsSync(indice)) return res.status(503).send('Falta compilar la web: ejecuta «npm run build».');
-    res.set('Cache-Control', 'no-store').sendFile(indice);
-  });
+  app.get('/api/catalogos', exige('administrador'), (req, res) => res.json(catalogosParaApi(estado.cat)));
+  app.get('/api/registro', exige('administrador'), (req, res) => res.json(estado.leerRegistro()));
+  app.get('/api/usuarios', exige('administrador'), (req, res) => res.json({
+    usuarios: leerUsuarios(rutaUsuarios).map(({ usuario, perfil }) => ({ usuario, perfil })),
+    permisos: PERMISOS,
+  }));
 
-  // --- Errores con mensajes claros
-  app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
+  app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta de la API inexistente.' }));
+
+  // ------------------------------------------------------------------ web compilada (React)
+  if (carpetaWeb && existsSync(join(carpetaWeb, 'index.html'))) {
+    app.use(express.static(carpetaWeb, { index: false, maxAge: '1h' }));
+    app.get(/.*/, (req, res) => res.sendFile(join(carpetaWeb, 'index.html')));
+  }
+
+  // ------------------------------------------------------------------ errores
   // eslint-disable-next-line no-unused-vars
-  app.use((err, req, res, _next) => {
-    if (err instanceof ErrorDatos) return res.status(400).json({ error: err.message });
-    if (err.estado) return res.status(err.estado).json({ error: err.message });
-    if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'El archivo supera 80 MB.' });
-    if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'El cuerpo de la petición no es JSON válido.' });
-    console.error(err);
-    res.status(500).json({ error: 'Error interno. Revisa la consola del servidor.' });
+  app.use((err, req, res, next) => {
+    const codigo = err instanceof ErrorConsulta ? err.estado : err.estado ?? (err.type === 'entity.parse.failed' ? 400 : 500);
+    if (codigo >= 500) console.error(err);
+    res.status(codigo).json({ error: codigo >= 500 ? 'Error interno del servidor. Revise la consola del servidor.' : err.message });
   });
-  return { app, estado };
+
+  return app;
 }

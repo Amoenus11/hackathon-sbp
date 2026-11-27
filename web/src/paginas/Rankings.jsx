@@ -1,286 +1,166 @@
-// Consulta de rankings: por período y actividad, con filtros, gráfico, tabla ordenable,
-// detalle por subactividad de cada banco y la evolución de posiciones en el tiempo.
-import { useMemo, useState } from 'react';
+// Consulta de rankings: período (arriba), ranking, banco y subactividad; gráfico, tabla ordenable y desglose.
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../api.js';
-import { useApp, useDatos } from '../contexto.jsx';
-import { Carga } from '../componentes/Estados.jsx';
-import {
-  BotonDescarga, Campo, EncabezadoPagina, InsigniaTipo, Leyenda, NombreBanco, PanelLateral, Pestanas, Tarjeta,
-} from '../componentes/Comunes.jsx';
-import TablaOrdenable from '../componentes/TablaOrdenable.jsx';
-import Grafico from '../componentes/Grafico.jsx';
-import { opcionBarrasRanking, opcionDesglose, opcionPosiciones } from '../graficos.js';
-import {
-  cambioTexto, claseCambio, entero, etiquetaCorta, etiquetaPeriodo, monto, num, pct, tituloRanking, variacion,
-} from '../formato.js';
+import { useApp } from '../contexto.jsx';
+import { useApi, qs, urlExportar } from '../api.js';
+import Grafico, { EJE_CATEGORIA, EJE_VALOR } from '../componentes/Grafico.jsx';
+import { Aviso, BotonDescarga, Cambio, Cargando, Insignia, Selector, Tabla, Tarjeta } from '../componentes/Comunes.jsx';
+import { AZUL, SERIES, TINTA, dinero, escaparHtml, mes, millones, numero, pct, pctSigno } from '../formato.js';
 
 export default function Rankings() {
-  const { meta, fecha } = useApp();
+  const { meta, fecha, ranking: buscarRanking } = useApp();
   const [params, setParams] = useSearchParams();
-  const ranking = params.get('ranking') && meta.rankings.some((r) => r.nombre === params.get('ranking'))
-    ? params.get('ranking') : meta.rankings[0]?.nombre;
-  const vista = params.get('vista') || 'tabla';
-  const banco = params.get('banco') || '';
-  const subactividad = params.get('sub') || '';
-  const [detalle, setDetalle] = useState(null); // fila del banco abierto en el panel lateral
+  const nombre = params.get('ranking') ?? meta.rankings[0].nombre;
+  const banco = params.get('banco');
+  const sub = params.get('sub');
+  const r = buscarRanking(nombre) ?? meta.rankings[0];
+  const cambiar = (k, v) => {
+    const p = new URLSearchParams(params);
+    if (v) p.set(k, v); else p.delete(k);
+    if (k === 'ranking') p.delete('sub');
+    setParams(p, { replace: true });
+  };
 
-  const infoRanking = meta.rankings.find((r) => r.nombre === ranking);
+  const rk = useApi(fecha ? `/rankings${qs({ fecha, ranking: r.nombre })}` : null);
+  const dg = useApi(fecha ? `/desglose${qs({ fecha, ranking: r.nombre })}` : null);
 
-  function cambiar(clave, valor) {
-    const nuevos = new URLSearchParams(params);
-    if (valor) nuevos.set(clave, valor); else nuevos.delete(clave);
-    if (clave === 'ranking') nuevos.delete('sub');
-    setParams(nuevos, { replace: true });
-  }
+  // Filas a graficar: el ranking oficial o, si se filtra una subactividad, el saldo de esa subactividad
+  const barras = useMemo(() => {
+    if (!rk.datos) return [];
+    if (!sub || !dg.datos) return rk.datos.filas.map((f) => ({ codigo: f.codigo_banco, banco: f.banco, saldo: f.saldo_actividad, posicion: f.posicion }));
+    return dg.datos.filas.filter((d) => d.subactividad === sub)
+      .map((d) => ({ codigo: d.codigo_banco, banco: d.banco, saldo: d.saldo }))
+      .sort((a, b) => Number(b.saldo) - Number(a.saldo) || a.codigo.localeCompare(b.codigo))
+      .map((d, i) => ({ ...d, posicion: i + 1 }));
+  }, [rk.datos, dg.datos, sub]);
+
+  const opcionBarras = useMemo(() => {
+    if (!barras.length) return null;
+    const filas = [...barras].reverse();
+    return {
+      grid: { left: 8, right: 64, top: 8, bottom: 8, containLabel: true },
+      xAxis: { ...EJE_VALOR, axisLabel: { ...EJE_VALOR.axisLabel, formatter: (v) => `${v / 1e6} M` } },
+      yAxis: { ...EJE_CATEGORIA, data: filas.map((f) => `${f.posicion}. ${f.banco}`) },
+      tooltip: { trigger: 'item', formatter: (p) => `<b>${escaparHtml(filas[p.dataIndex].banco)}</b> (${filas[p.dataIndex].codigo})<br>Posición ${filas[p.dataIndex].posicion}<br>Saldo: ${dinero(filas[p.dataIndex].saldo)}` },
+      series: [{
+        type: 'bar', barMaxWidth: 20,
+        data: filas.map((f) => ({ value: Number(f.saldo), itemStyle: { color: !banco || f.codigo === banco ? AZUL[450] : AZUL[150], borderRadius: [0, 4, 4, 0] } })),
+        label: { show: true, position: 'right', color: TINTA.secundaria, fontSize: 11, formatter: (p) => millones(filas[p.dataIndex].saldo) },
+      }],
+    };
+  }, [barras, banco]);
+
+  const opcionDesglose = useMemo(() => {
+    if (!dg.datos || !rk.datos) return null;
+    const orden = [...rk.datos.filas].reverse(); // mismo orden que el ranking (líder arriba)
+    const subs = r.subactividades;
+    return {
+      legend: { top: 0, left: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 12, textStyle: { color: TINTA.secundaria } },
+      grid: { left: 8, right: 16, top: subs.length > 3 ? 56 : 32, bottom: 8, containLabel: true },
+      xAxis: { ...EJE_VALOR, axisLabel: { ...EJE_VALOR.axisLabel, formatter: (v) => `${v / 1e6} M` } },
+      yAxis: { ...EJE_CATEGORIA, data: orden.map((f) => f.banco) },
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow' },
+        formatter: (ps) => `<b>${escaparHtml(ps[0].name)}</b><br>${ps.map((p) => `${p.marker}${escaparHtml(p.seriesName)}: ${dinero(p.value)}`).join('<br>')}`,
+      },
+      series: subs.map((s, k) => ({
+        name: s, type: 'bar', stack: 'total', barMaxWidth: 20,
+        itemStyle: { color: SERIES[k], borderColor: TINTA.superficie, borderWidth: 1 },
+        emphasis: { focus: 'series' },
+        data: orden.map((f) => Number(dg.datos.filas.find((d) => d.codigo_banco === f.codigo_banco && d.subactividad === s)?.saldo ?? 0)),
+      })),
+    };
+  }, [dg.datos, rk.datos, r.subactividades]);
+
+  const tablaDesglose = dg.datos && (
+    <Tabla compacta claveFila={(f) => `${f.codigo_banco}-${f.subactividad}`} resaltar={(f) => f.codigo_banco === banco}
+      columnas={[
+        { clave: 'banco', titulo: 'Banco' },
+        { clave: 'subactividad', titulo: 'Subactividad' },
+        { clave: 'saldo', titulo: 'Saldo', num: true, render: (f) => dinero(f.saldo), orden: (f) => Number(f.saldo) },
+        { clave: 'operaciones', titulo: 'Operaciones', num: true, render: (f) => numero(f.operaciones) },
+        ...(r.nombre === 'CONSUMO' ? [{ clave: 'reclasificadas_sb21', titulo: 'Reclasificadas SB21', num: true }] : []),
+      ]}
+      filas={dg.datos.filas.filter((d) => (!sub || d.subactividad === sub) && (!banco || d.codigo_banco === banco))}
+    />
+  );
+  const reclasificadas = r.nombre === 'CONSUMO' && dg.datos ? dg.datos.filas.reduce((t, d) => t + d.reclasificadas_sb21, 0) : 0;
 
   return (
     <>
-      <EncabezadoPagina
-        titulo="Rankings de crédito"
-        subtitulo={`Posición de los 12 bancos por saldo en cada actividad · ${etiquetaPeriodo(fecha, meta)}`}
-      >
-        <BotonDescarga tipo="rankings" fecha={fecha}>Ranking (CSV)</BotonDescarga>
-        <BotonDescarga tipo="desglose" fecha={fecha}>Desglose (CSV)</BotonDescarga>
-      </EncabezadoPagina>
+      <div className="titulo-pagina">
+        <h1>Rankings de crédito</h1>
+        <p>Bancos ordenados por saldo de la actividad en {mes(fecha)}. Empates exactos: por código de banco ascendente. Siempre se muestran los 12 bancos.</p>
+      </div>
 
-      <Pestanas
-        etiqueta="Ranking" valor={ranking} alCambiar={(v) => cambiar('ranking', v)}
-        opciones={meta.rankings.map((r) => ({ valor: r.nombre, texto: r.titulo || tituloRanking(r.nombre), extra: <InsigniaTipo tipo={r.tipo} /> }))}
-      />
+      <div className="pestanas" role="tablist" aria-label="Ranking">
+        {meta.rankings.map((x) => (
+          <button key={x.nombre} type="button" role="tab" aria-selected={x.nombre === r.nombre} className={x.nombre === r.nombre ? 'activa' : ''} onClick={() => cambiar('ranking', x.nombre)}>
+            {x.titulo} <Insignia tipo={x.tipo}>{x.tipo}</Insignia>
+          </button>
+        ))}
+      </div>
 
       <div className="barra-filtros">
-        <Pestanas
-          compactas etiqueta="Vista" valor={vista} alCambiar={(v) => cambiar('vista', v === 'tabla' ? '' : v)}
-          opciones={[{ valor: 'tabla', texto: 'Ranking del período' }, { valor: 'evolucion', texto: 'Evolución' }]}
-        />
-        <Campo etiqueta="Banco (resaltar)">
-          <select value={banco} onChange={(e) => cambiar('banco', e.target.value)}>
-            <option value="">Todos</option>
-            {meta.bancos.map((b) => <option key={b.codigo} value={b.codigo}>{b.nombre} ({b.codigo})</option>)}
-          </select>
-        </Campo>
-        {vista === 'tabla' && (
-          <Campo etiqueta="Subactividad">
-            <select value={subactividad} onChange={(e) => cambiar('sub', e.target.value)}>
-              <option value="">Todas (ranking oficial)</option>
-              {infoRanking?.subactividades.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </Campo>
-        )}
+        <Selector id="f-banco" etiqueta="Resaltar banco" valor={banco} onChange={(v) => cambiar('banco', v)} todos="Ninguno" opciones={meta.bancos.map((b) => ({ valor: b.codigo, texto: `${b.nombre} (${b.codigo})` }))} />
+        <Selector id="f-sub" etiqueta="Subactividad" valor={sub} onChange={(v) => cambiar('sub', v)} todos="Todas (ranking oficial)" opciones={r.subactividades.map((s) => ({ valor: s, texto: s }))} />
+        <div className="filtros-der">
+          <BotonDescarga chico href={urlExportar('rankings', { fecha, ranking: r.nombre })}>Ranking (CSV)</BotonDescarga>
+          <BotonDescarga chico href={urlExportar('desglose', { fecha, ranking: r.nombre })}>Desglose (CSV)</BotonDescarga>
+        </div>
       </div>
 
-      {vista === 'evolucion' ? (
-        <Evolucion ranking={ranking} banco={banco} />
-      ) : subactividad ? (
-        <PorSubactividad fecha={fecha} ranking={ranking} subactividad={subactividad} banco={banco} />
-      ) : (
-        <RankingDelPeriodo fecha={fecha} ranking={ranking} banco={banco} alElegir={setDetalle} />
-      )}
-
-      <PanelLateral
-        abierto={!!detalle} alCerrar={() => setDetalle(null)}
-        titulo={detalle ? `${detalle.banco} · ${tituloRanking(ranking, meta)}` : ''}
-      >
-        {detalle && <DesgloseBanco fecha={fecha} ranking={ranking} fila={detalle} />}
-      </PanelLateral>
-    </>
-  );
-}
-
-export function RankingDelPeriodo({ fecha, ranking, banco, alElegir }) {
-  const { meta } = useApp();
-  const estado = useDatos(() => (fecha && ranking ? api.rankings(fecha, ranking) : null), [fecha, ranking]);
-
-  return (
-    <Carga estado={estado} filas={10}>
-      {(d) => {
-        const hayAnterior = d.fecha_anterior != null;
-        const columnas = [
-          { clave: 'posicion', titulo: 'Posición', numerica: true, render: (f) => <span className="posicion">{f.posicion}</span> },
-          { clave: 'banco', titulo: 'Banco', render: (f) => <NombreBanco codigo={f.codigo_banco} nombre={f.banco} /> },
-          { clave: 'saldo_actividad', titulo: 'Saldo de la actividad', numerica: true, valor: (f) => num(f.saldo_actividad), render: (f) => monto(f.saldo_actividad) },
-          { clave: 'ponderacion_pct', titulo: 'Ponderación', numerica: true, valor: (f) => num(f.ponderacion_pct), render: (f) => pct(f.ponderacion_pct) },
-          { clave: 'participacion_pct', titulo: 'Participación', numerica: true, valor: (f) => num(f.participacion_pct), render: (f) => pct(f.participacion_pct, 2) },
-          { clave: 'operaciones', titulo: 'Operaciones', numerica: true, render: (f) => entero(f.operaciones) },
-          ...(hayAnterior ? [
-            { clave: 'cambio', titulo: `Cambio vs ${etiquetaCorta(d.fecha_anterior, meta)}`, numerica: true, render: (f) => <span className={`cambio ${claseCambio(f.cambio)}`}>{cambioTexto(f.cambio)}</span> },
-            { clave: 'var_saldo_pct', titulo: 'Var. saldo', numerica: true, valor: (f) => num(f.var_saldo_pct), render: (f) => variacion(f.var_saldo_pct) },
-          ] : []),
-        ];
-        return (
-          <div className="rejilla-dos">
+      {rk.error && <Aviso error={rk.error} />}
+      {!rk.datos ? <Cargando /> : (
+        <>
+          <div className="dos-columnas ancha-izq">
             <Tarjeta
-              titulo={`${tituloRanking(ranking, meta)} · ${etiquetaPeriodo(d.fecha, meta)}`}
-              subtitulo={`Saldo total del ranking en el sistema: ${monto(d.total_ranking)} u.m.`}
-              id="grafico-ranking"
+              titulo={sub ? `${r.titulo} · ${sub}` : `Ranking ${r.titulo}`}
+              subtitulo={sub ? 'Orden por saldo de la subactividad elegida (vista de exploración; el ranking oficial es por actividad).' : `Total del sector: ${dinero(rk.datos.total_ranking)}`}
+              tabla={<Tabla compacta columnas={[
+                { clave: 'posicion', titulo: 'Pos.', num: true },
+                { clave: 'banco', titulo: 'Banco' },
+                { clave: 'saldo', titulo: 'Saldo', num: true, render: (f) => dinero(f.saldo), orden: (f) => Number(f.saldo) },
+              ]} filas={barras} claveFila={(f) => f.codigo} />}
             >
-              <Grafico
-                opcion={opcionBarrasRanking(d.filas, { resaltado: banco || null })} alto={430}
-                etiqueta={`Barras con el saldo de cada banco en ${tituloRanking(ranking, meta)}`}
-                alEventos={{ click: (p) => alElegir([...d.filas].sort((a, b) => a.posicion - b.posicion)[p.dataIndex]) }}
-              />
-              <Leyenda>Haz clic en una barra o en una fila para ver el detalle por subactividad.</Leyenda>
+              {opcionBarras && <Grafico opcion={opcionBarras} alto={400} descripcion={`Barras con el saldo de cada banco en ${r.titulo}`} />}
             </Tarjeta>
-            <Tarjeta titulo="Tabla del ranking" subtitulo="Ordena con clic en los encabezados" id="tabla-ranking">
-              <TablaOrdenable
-                etiqueta={`Ranking ${tituloRanking(ranking, meta)}`} columnas={columnas} filas={d.filas}
-                ordenInicial={{ clave: 'posicion', asc: true }} claveFila={(f) => f.codigo_banco}
-                alClicFila={alElegir} filaResaltada={(f) => f.codigo_banco === banco}
-              />
-              <Leyenda>
-                <strong>Ponderación</strong> = saldo del banco en esta actividad ÷ su cartera local válida total × 100 (regla oficial, 4 decimales).{' '}
-                <strong>Participación</strong> = saldo del banco ÷ saldo de la actividad en todo el sistema (cuota de mercado, indicador adicional).
-              </Leyenda>
+            <Tarjeta titulo="Cómo leer este ranking">
+              <dl className="definiciones">
+                <dt>Saldo de la actividad</dt><dd>Suma del saldo de capital de los préstamos válidos del banco clasificados en {r.titulo} por el catálogo CINU.</dd>
+                <dt>Ponderación (oficial)</dt><dd>Saldo de la actividad ÷ total de cartera local válida <i>del banco</i> × 100. Mide cuánto pesa {r.titulo} dentro de ese banco.</dd>
+                <dt>Cuota</dt><dd>Saldo del banco ÷ saldo de todo el sector. Mide su peso en el mercado (indicador adicional).</dd>
+                <dt>Subactividades</dt><dd>{r.subactividades.join(' · ')}</dd>
+                {r.nombre === 'CONSUMO' && <><dt>Regla SB21</dt><dd>Los créditos personales con facilidad 07 son tarjetas: se cuentan en Tarjeta ({numero(reclasificadas)} operaciones este mes). El total de Consumo no cambia.</dd></>}
+              </dl>
             </Tarjeta>
           </div>
-        );
-      }}
-    </Carga>
-  );
-}
 
-// Saldos de una subactividad para los 12 bancos (informativo: el ranking oficial es por actividad)
-export function PorSubactividad({ fecha, ranking, subactividad, banco }) {
-  const { meta } = useApp();
-  const estado = useDatos(() => (fecha && ranking ? api.desglose(fecha, ranking) : null), [fecha, ranking]);
-  return (
-    <Carga estado={estado} filas={8}>
-      {(d) => {
-        const filas = d.filas.filter((f) => f.subactividad === subactividad)
-          .sort((a, b) => (num(b.saldo) - num(a.saldo)) || a.codigo_banco.localeCompare(b.codigo_banco))
-          .map((f, i) => ({ ...f, posicion: i + 1, saldo_actividad: f.saldo }));
-        const total = filas.reduce((s, f) => s + (num(f.saldo) || 0), 0);
-        return (
-          <div className="rejilla-dos">
-            <Tarjeta titulo={`${subactividad} · ${tituloRanking(ranking, meta)}`} subtitulo="Saldo de cada banco en esta subactividad (informativo)" id="sub-grafico">
-              <Grafico
-                opcion={opcionBarrasRanking(filas.map((f) => ({ ...f, ponderacion_pct: null })), { resaltado: banco || null })}
-                alto={430} etiqueta={`Saldo por banco en la subactividad ${subactividad}`}
-              />
-            </Tarjeta>
-            <Tarjeta titulo="Tabla por subactividad" id="sub-tabla">
-              <TablaOrdenable
-                etiqueta={`Subactividad ${subactividad}`} claveFila={(f) => f.codigo_banco}
-                filaResaltada={(f) => f.codigo_banco === banco}
-                columnas={[
-                  { clave: 'posicion', titulo: 'Orden', numerica: true },
-                  { clave: 'banco', titulo: 'Banco', render: (f) => <NombreBanco codigo={f.codigo_banco} nombre={f.banco} /> },
-                  { clave: 'saldo', titulo: 'Saldo', numerica: true, valor: (f) => num(f.saldo), render: (f) => monto(f.saldo) },
-                  { clave: 'cuota', titulo: '% de la subactividad', numerica: true, valor: (f) => num(f.saldo), render: (f) => (total ? `${((num(f.saldo) / total) * 100).toFixed(2)} %` : '—') },
-                  { clave: 'operaciones', titulo: 'Operaciones', numerica: true, render: (f) => entero(f.operaciones) },
-                ]}
-                filas={filas}
-              />
-              {ranking === 'CONSUMO' && subactividad === 'Tarjeta' && (
-                <p className="nota-sb21">
-                  Incluye operaciones con CINU de Crédito personal y facilidad <strong>07</strong> reclasificadas a Tarjeta (regla SB21).
-                </p>
-              )}
-              <Leyenda>El ranking oficial se calcula por actividad; esta vista por subactividad es complementaria.</Leyenda>
-            </Tarjeta>
-          </div>
-        );
-      }}
-    </Carga>
-  );
-}
+          <Tarjeta titulo={`Tabla del ranking ${r.titulo}`} subtitulo={rk.datos.fecha_anterior ? `«Cambio» compara con ${mes(rk.datos.fecha_anterior)} (positivo = sube).` : 'Primer período disponible: sin comparación.'}>
+            <Tabla
+              claveFila={(f) => f.codigo_banco} resaltar={(f) => f.codigo_banco === banco}
+              inicial={{ clave: 'posicion', asc: true }}
+              columnas={[
+                { clave: 'posicion', titulo: 'Posición', num: true },
+                { clave: 'cambio', titulo: 'Cambio', num: true, render: (f) => <Cambio valor={f.cambio} /> },
+                { clave: 'banco', titulo: 'Banco', render: (f) => <>{f.banco} <span className="tenue chico">{f.codigo_banco}</span></> },
+                { clave: 'saldo_actividad', titulo: 'Saldo de la actividad', num: true, render: (f) => dinero(f.saldo_actividad), orden: (f) => Number(f.saldo_actividad) },
+                { clave: 'total_cartera', titulo: 'Total cartera local válida', num: true, render: (f) => dinero(f.total_cartera), orden: (f) => Number(f.total_cartera) },
+                { clave: 'ponderacion_pct', titulo: 'Ponderación', num: true, render: (f) => pct(f.ponderacion_pct, 4), orden: (f) => Number(f.ponderacion_pct) },
+                { clave: 'participacion_pct', titulo: 'Cuota', num: true, render: (f) => pct(f.participacion_pct, 2), orden: (f) => Number(f.participacion_pct) },
+                { clave: 'operaciones', titulo: 'Operaciones', num: true, render: (f) => numero(f.operaciones) },
+                { clave: 'var_saldo_pct', titulo: 'Var. saldo', num: true, render: (f) => pctSigno(f.var_saldo_pct), orden: (f) => (f.var_saldo_pct === null ? null : Number(f.var_saldo_pct)) },
+              ]}
+              filas={rk.datos.filas}
+            />
+          </Tarjeta>
 
-// Detalle de un banco: de qué subactividades se compone su saldo y cómo sale su ponderación
-export function DesgloseBanco({ fecha, ranking, fila }) {
-  const { meta } = useApp();
-  const estado = useDatos(() => api.desglose(fecha, ranking, fila.codigo_banco), [fecha, ranking, fila.codigo_banco]);
-  return (
-    <>
-      <div className="resumen-banco">
-        <div><span>Posición</span><strong className="num">{fila.posicion}.º</strong></div>
-        <div><span>Saldo de la actividad</span><strong className="num">{monto(fila.saldo_actividad)}</strong></div>
-        <div><span>Cartera local válida del banco</span><strong className="num">{monto(fila.total_cartera)}</strong></div>
-        <div><span>Ponderación</span><strong className="num">{pct(fila.ponderacion_pct)}</strong></div>
-      </div>
-      <p className="formula">
-        Ponderación = {monto(fila.saldo_actividad)} ÷ {monto(fila.total_cartera)} × 100 = <strong>{pct(fila.ponderacion_pct)}</strong>
-      </p>
-      <Carga estado={estado} filas={4}>
-        {(d) => {
-          const filas = d.filas.filter((f) => f.codigo_banco === fila.codigo_banco);
-          const suma = filas.reduce((s, f) => s + (num(f.saldo) || 0), 0);
-          const reclasificadas = filas.reduce((s, f) => s + (f.reclasificadas_sb21 || 0), 0);
-          return (
-            <>
-              <h3 className="titulo-seccion">Desglose por subactividad</h3>
-              <Grafico opcion={opcionDesglose(filas, fila.codigo_banco)} alto={Math.max(160, filas.length * 46)} etiqueta="Saldo del banco por subactividad" />
-              <table className="tabla tabla-compacta">
-                <thead><tr><th scope="col">Subactividad</th><th scope="col" className="numerica">Saldo</th><th scope="col" className="numerica">%</th><th scope="col" className="numerica">Operaciones</th></tr></thead>
-                <tbody>
-                  {filas.map((f) => (
-                    <tr key={f.subactividad}>
-                      <td>{f.subactividad}</td>
-                      <td className="numerica num">{monto(f.saldo)}</td>
-                      <td className="numerica num">{suma ? `${((num(f.saldo) / suma) * 100).toFixed(2)} %` : '—'}</td>
-                      <td className="numerica num">{entero(f.operaciones)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr><th scope="row">Total (= saldo de la actividad)</th><th className="numerica num">{monto(fila.saldo_actividad)}</th><th /><th className="numerica num">{entero(fila.operaciones)}</th></tr>
-                </tfoot>
-              </table>
-              {ranking === 'CONSUMO' && (
-                <p className="nota-sb21">
-                  <strong>Regla SB21:</strong> {reclasificadas > 0
-                    ? `${entero(reclasificadas)} operaciones de Crédito personal con facilidad 07 (tarjeta de crédito) se reclasificaron a Tarjeta.`
-                    : 'este banco no tuvo operaciones de Crédito personal con facilidad 07 para reclasificar.'}{' '}
-                  El total de Consumo no cambia; solo se reparte distinto entre subactividades.
-                </p>
-              )}
-              <p className="nota">{etiquetaPeriodo(fecha, meta)} · {tituloRanking(ranking, meta)} · banco {fila.codigo_banco}</p>
-            </>
-          );
-        }}
-      </Carga>
+          <Tarjeta titulo={`Desglose por subactividad · ${r.titulo}`} subtitulo="Cada barra suma exactamente el saldo de la actividad del banco (reconciliación 1)." tabla={tablaDesglose}>
+            {dg.error && <Aviso error={dg.error} />}
+            {opcionDesglose ? <Grafico opcion={opcionDesglose} alto={440} descripcion="Barras apiladas por subactividad para cada banco" /> : <Cargando />}
+          </Tarjeta>
+        </>
+      )}
     </>
-  );
-}
-
-export function Evolucion({ ranking, banco }) {
-  const { meta } = useApp();
-  const estado = useDatos(() => (ranking ? api.historia(ranking) : null), [ranking]);
-  const titulo = tituloRanking(ranking, meta);
-  return (
-    <Carga estado={estado} filas={8}>
-      {(h) => {
-        if (h.periodos.length < 2) {
-          return <Tarjeta titulo="Evolución"><p className="nota">Hace falta al menos dos períodos cargados para ver la evolución.</p></Tarjeta>;
-        }
-        const etiquetas = h.periodos.map((f) => etiquetaCorta(f, meta));
-        return (
-          <div className="rejilla-dos rejilla-evolucion">
-            <Tarjeta titulo={`Posiciones en el tiempo · ${titulo}`} subtitulo="1.º arriba. Pasa el ratón por una línea para resaltar un banco." id="bump">
-              <Grafico opcion={opcionPosiciones(etiquetas, h.bancos, { resaltado: banco || null })} alto={480} etiqueta={`Evolución de las posiciones en ${titulo}`} />
-            </Tarjeta>
-            <Tarjeta titulo="Posición por período" id="tabla-evolucion">
-              <TablaOrdenable
-                etiqueta="Posiciones por período" claveFila={(b) => b.codigo_banco}
-                filaResaltada={(b) => b.codigo_banco === banco}
-                ordenInicial={{ clave: `p${h.periodos.length - 1}`, asc: true }}
-                columnas={[
-                  { clave: 'banco', titulo: 'Banco', render: (b) => <NombreBanco codigo={b.codigo_banco} nombre={b.banco} /> },
-                  ...h.periodos.map((f, i) => ({
-                    clave: `p${i}`, titulo: etiquetas[i], numerica: true, valor: (b) => b.posiciones[i], render: (b) => `${b.posiciones[i]}.º`,
-                  })),
-                  {
-                    clave: 'neto', titulo: 'Cambio total', numerica: true,
-                    valor: (b) => b.posiciones[0] - b.posiciones[b.posiciones.length - 1],
-                    render: (b) => { const c = b.posiciones[0] - b.posiciones[b.posiciones.length - 1]; return <span className={`cambio ${claseCambio(c)}`}>{cambioTexto(c)}</span>; },
-                  },
-                ]}
-                filas={h.bancos}
-              />
-            </Tarjeta>
-          </div>
-        );
-      }}
-    </Carga>
   );
 }
