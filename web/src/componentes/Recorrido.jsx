@@ -85,6 +85,14 @@ export const PASOS_TODOS = [
     ],
   },
   {
+    ruta: '/extraccion', titulo: 'Descarga solo lo que necesitas', minimo: 'publico',
+    texto: 'Cortes, actividades, bancos, clasificación y campos: sin código y sin limpiar después.',
+    focos: [
+      { sel: '.ex-pasos', texto: 'Hoy se descarga todo y después se procesa. Aquí eliges cortes, actividades, bancos, clasificación y campos.' },
+      { sel: '.ex-vista', texto: 'La vista previa se actualiza sola; luego descargas en CSV o Excel. Nunca salen datos personales del cliente.' },
+    ],
+  },
+  {
     ruta: '/asistente', titulo: 'Pregúntale a la IA', minimo: 'publico',
     texto: 'Responde en lenguaje natural con las cifras oficiales.',
     focos: [

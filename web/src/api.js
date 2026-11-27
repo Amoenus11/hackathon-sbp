@@ -120,6 +120,10 @@ export const api = {
   omitirDosPasos: () => solicitar('/dos-pasos/omitir', { metodo: 'POST' }),
   cargas: () => solicitar('/cargas'),
 
+  // Descarga a tu medida: opciones y vista previa (el archivo se baja con descargarExtraccion)
+  opcionesExtraccion: () => solicitar('/extraccion/opciones'),
+  extraer: (cuerpo) => solicitar('/extraccion', { metodo: 'POST', cuerpo: { ...cuerpo, formato: 'json' } }),
+
   // Asistente IA (solo explica resultados ya calculados)
   preguntarIA: (pregunta, fecha, pantalla) => solicitar('/ia', { metodo: 'POST', cuerpo: { pregunta, fecha, pantalla } }),
 };
@@ -127,4 +131,30 @@ export const api = {
 // Enlace de descarga directa de un CSV (sin fecha = todos los períodos).
 export function urlExportar(tipo, fecha) {
   return `${BASE}/exportar/${tipo}.csv${consulta({ fecha })}`;
+}
+
+// Descarga a tu medida: pide el archivo (CSV o Excel) y lo guarda con el nombre que da el servidor.
+export async function descargarExtraccion(cuerpo, formato) {
+  let r;
+  try {
+    r = await fetch(`${BASE}/extraccion`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Syntropy': '1' },
+      body: JSON.stringify({ ...cuerpo, formato }),
+    });
+  } catch {
+    throw new ErrorApi('No se pudo conectar con el servidor.', 0);
+  }
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new ErrorApi(d?.error || MENSAJES[r.status] || `Error ${r.status}`, r.status);
+  }
+  const disp = r.headers.get('content-disposition') || '';
+  const nombre = /filename="?([^";]+)"?/.exec(disp)?.[1] || `syntropy_extraccion.${formato}`;
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
