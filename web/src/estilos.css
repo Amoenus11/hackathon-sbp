@@ -762,5 +762,5 @@ h2 { letter-spacing: -0.012em; }
 
 .celda-periodo { white-space: nowrap; }
 /* Períodos cargados: la tarjeta usa todo el ancho y la tabla nunca se sale */
-section[aria-labelledby="periodos-titulo"] { grid-column: 1 / -1; max-width: 100%; overflow-x: auto; }
+.rejilla-dos > [aria-labelledby="periodos-titulo"], .rejilla-dos > #periodos, section[aria-labelledby="periodos-titulo"] { grid-column: 1 / -1; max-width: 100%; overflow-x: auto; }
 section[aria-labelledby="periodos-titulo"] table { width: 100%; }
