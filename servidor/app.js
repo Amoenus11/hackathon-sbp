@@ -1,0 +1,344 @@
+// API de la plataforma (Express). Contrato completo en docs/api.md.
+import express from 'express';
+import multer from 'multer';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { crearEstado } from './estado.js';
+import { crearSesiones, usuariosDesdeEntorno, PERMISOS, NOMBRE_PERFIL } from './sesion.js';
+import { preguntarIA } from './ia.js';
+import {
+  ORDEN_RANKINGS, TIPO_RANKING, TITULO_RANKING, VERSION_MOTOR, ErrorDatos,
+  etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje,
+} from '../motor/motor.js';
+import { generar } from '../motor/exportar.js';
+
+const COOKIE = 'syntropy_sesion';
+const FUENTE = 'Paquete Hackathon SBP 2026 · Átomo 03 (AT03) sintético';
+const AVISO = 'Datos 100 % ficticios con fines de demostración. No representan al sistema bancario panameño ni constituyen opinión formal de la SBP.';
+
+export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpetaReto = 'datos/reto', carpetaWeb = 'dist' } = {}) {
+  const estado = crearEstado({ carpetaReto, carpetaLocal, inicial: entorno.CARGA_INICIAL || 'todos' });
+  const sesiones = crearSesiones(usuariosDesdeEntorno(entorno));
+  const seguro = entorno.COOKIE_SEGURA === '1';
+  const app = express();
+  app.disable('x-powered-by');
+  if (entorno.DETRAS_DE_PROXY === '1') app.set('trust proxy', 1);
+
+  // --- Cabeceras de seguridad
+  app.use((req, res, next) => {
+    res.set({
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
+      'X-Frame-Options': 'DENY',
+    });
+    next();
+  });
+  app.use(express.json({ limit: '1mb' }));
+
+  // --- Sesión: público por defecto
+  app.use((req, res, next) => {
+    const token = (req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).find(([k]) => k === COOKIE)?.[1];
+    req.token = token;
+    req.sesion = sesiones.leer(token);
+    req.perfil = req.sesion?.perfil || 'publico';
+    req.usuario = req.sesion?.usuario || null;
+    if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.path.startsWith('/api/') && req.get('X-Syntropy') !== '1') {
+      return res.status(403).json({ error: 'Petición no permitida.' });
+    }
+    next();
+  });
+  const permiso = (nombre) => (req, res, next) => (PERMISOS[req.perfil].includes(nombre)
+    ? next()
+    : res.status(req.perfil === 'publico' ? 401 : 403).json({ error: `Esta opción es para ${nombre === 'cargar' || nombre === 'parametros' || nombre === 'registro' || nombre === 'perfiles' ? 'administradores' : 'analistas y administradores'}. Inicia sesión con un perfil autorizado.` }));
+  const registrar = (req, accion, detalle) => estado.registrar(req.usuario, req.perfil, accion, detalle);
+
+  // --- Ayudantes de consulta
+  const fechaDe = (req) => {
+    const f = String(req.query.fecha || estado.ultimo()?.fecha || '');
+    return estado.periodo(f);
+  };
+  const rankingDe = (req, obligatorio = true) => {
+    const r = String(req.query.ranking || '').toUpperCase();
+    if (!r && !obligatorio) return null;
+    if (!ORDEN_RANKINGS.includes(r)) throw new ErrorDatos(`Ranking desconocido. Usa uno de: ${ORDEN_RANKINGS.join(', ')}.`);
+    return r;
+  };
+  const filasRanking = (p, macro) => {
+    const anterior = estado.anteriorDe(p.fecha);
+    const previo = anterior ? new Map(anterior.rankings[macro].map((f) => [f.codigo_banco, f])) : null;
+    return p.rankings[macro].map((f) => {
+      const a = previo?.get(f.codigo_banco);
+      return {
+        posicion: f.posicion, codigo_banco: f.codigo_banco, banco: f.banco, saldo_actividad: aTexto(f.saldo_actividad),
+        total_cartera: aTexto(f.total_cartera), ponderacion_pct: f.ponderacion_pct, operaciones: f.operaciones,
+        participacion_pct: f.participacion_pct,
+        posicion_anterior: a ? a.posicion : null, cambio: a ? a.posicion - f.posicion : null,
+        saldo_anterior: a ? aTexto(a.saldo_actividad) : null,
+        var_saldo_pct: a ? porcentaje(f.saldo_actividad - a.saldo_actividad, a.saldo_actividad) : null,
+      };
+    });
+  };
+  const resumenPeriodo = (p) => ({
+    fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), corta: etiquetaCorta(p.fecha), archivo: p.archivo, cargado: p.cargado, filas_leidas: p.filas_leidas,
+  });
+
+  // --- Sesión
+  app.get('/api/sesion', (req, res) => res.json({ perfil: req.perfil, usuario: req.usuario }));
+  app.post('/api/sesion', (req, res) => {
+    const r = sesiones.entrar(req.body?.usuario, req.body?.clave);
+    if (r.error) {
+      estado.registrar(String(req.body?.usuario || '').slice(0, 40), 'publico', 'inicio_sesion_fallido', 'Usuario o contraseña incorrectos');
+      return res.status(401).json({ error: r.error });
+    }
+    res.cookie(COOKIE, r.token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000 });
+    estado.registrar(r.usuario, r.perfil, 'inicio_sesion', `Perfil ${NOMBRE_PERFIL[r.perfil]}`);
+    res.json({ perfil: r.perfil, usuario: r.usuario });
+  });
+  app.delete('/api/sesion', (req, res) => {
+    if (req.sesion) registrar(req, 'cierre_sesion', '');
+    sesiones.salir(req.token);
+    res.clearCookie(COOKIE, { path: '/' });
+    res.json({ perfil: 'publico', usuario: null });
+  });
+
+  // --- Metadatos
+  app.get('/api/meta', (req, res) => {
+    const c = estado.catalogos;
+    res.json({
+      periodos: estado.lista().map(resumenPeriodo),
+      ultimo: estado.ultimo()?.fecha || null,
+      rankings: ORDEN_RANKINGS.map((r) => ({ nombre: r, titulo: TITULO_RANKING[r], tipo: TIPO_RANKING[r], subactividades: c.subactividades[r] })),
+      bancos: c.bancos.map((b) => ({ codigo: b.codigo, nombre: b.nombre })),
+      fuente: FUENTE, aviso: AVISO, parametros: estado.parametros, permisos: PERMISOS, version_motor: VERSION_MOTOR,
+      perfil: req.perfil, usuario: req.usuario,
+    });
+  });
+
+  // --- Panel principal
+  app.get('/api/panel', (req, res) => {
+    const p = fechaDe(req);
+    const a = estado.anteriorDe(p.fecha);
+    const excluidas = p.filas_leidas - p.universo;
+    const concentracion = ORDEN_RANKINGS.map((macro) => {
+      const total = Number(p.totales_ranking[macro]);
+      const cuotas = p.rankings[macro].map((f) => (total ? (Number(f.saldo_actividad) / total) * 100 : 0));
+      const hhi = Math.round(cuotas.reduce((s, x) => s + x * x, 0));
+      const top3 = p.rankings[macro].slice(0, 3).reduce((s, f) => s + f.saldo_actividad, 0n);
+      return { ranking: macro, hhi, nivel: hhi < 1500 ? 'baja' : hhi <= 2500 ? 'moderada' : 'alta', top3_pct: porcentaje(top3, p.totales_ranking[macro]) };
+    });
+    res.json({
+      fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), fecha_anterior: a?.fecha || null,
+      kpis: {
+        cartera_total: aTexto(p.saldo_universo), cartera_total_anterior: a ? aTexto(a.saldo_universo) : null,
+        var_cartera_pct: a ? porcentaje(p.saldo_universo - a.saldo_universo, a.saldo_universo) : null,
+        operaciones: p.universo, operaciones_anterior: a?.universo ?? null, bancos: estado.catalogos.bancos.length,
+        filas_leidas: p.filas_leidas, excluidas, pct_excluidas: porcentaje(BigInt(excluidas), BigInt(p.filas_leidas)),
+      },
+      lideres: ORDEN_RANKINGS.map((macro) => {
+        const f = p.rankings[macro][0];
+        const la = a?.rankings[macro][0];
+        return {
+          ranking: macro, codigo_banco: f.codigo_banco, banco: f.banco, saldo: aTexto(f.saldo_actividad),
+          ponderacion_pct: f.ponderacion_pct, participacion_pct: f.participacion_pct,
+          lider_anterior: la ? { codigo_banco: la.codigo_banco, banco: la.banco } : null,
+          cambio_lider: Boolean(la && la.codigo_banco !== f.codigo_banco),
+        };
+      }),
+      composicion: ORDEN_RANKINGS.map((macro) => ({ ranking: macro, saldo: aTexto(p.totales_ranking[macro]), pct: porcentaje(p.totales_ranking[macro], p.saldo_universo) })),
+      destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 8).map(({ peso, ...x }) => x) : [],
+      indicadores: {
+        morosidad_pct: porcentaje(p.indicadores.mora, p.saldo_universo),
+        vencida_90_pct: porcentaje(p.indicadores.mora90, p.saldo_universo),
+        reclasificadas_sb21: p.indicadores.reclasificadas_sb21,
+        concentracion,
+      },
+    });
+  });
+
+  // --- Rankings y vistas derivadas
+  app.get('/api/rankings', (req, res) => {
+    const p = fechaDe(req);
+    const macro = rankingDe(req);
+    const a = estado.anteriorDe(p.fecha);
+    res.json({ fecha: p.fecha, ranking: macro, fecha_anterior: a?.fecha || null, total_ranking: aTexto(p.totales_ranking[macro]), filas: filasRanking(p, macro) });
+  });
+  app.get('/api/matriz', (req, res) => {
+    const p = fechaDe(req);
+    res.json({
+      fecha: p.fecha, rankings: ORDEN_RANKINGS,
+      bancos: estado.catalogos.bancos.map((b) => ({
+        codigo_banco: b.codigo, banco: b.nombre,
+        total_cartera: aTexto(p.bancos.find((x) => x.codigo_banco === b.codigo).total),
+        celdas: ORDEN_RANKINGS.map((macro) => {
+          const f = p.rankings[macro].find((x) => x.codigo_banco === b.codigo);
+          return { ranking: macro, saldo: aTexto(f.saldo_actividad), ponderacion_pct: f.ponderacion_pct, posicion: f.posicion };
+        }),
+      })),
+    });
+  });
+  app.get('/api/historia', (req, res) => {
+    const macro = rankingDe(req);
+    const lista = estado.lista();
+    res.json({
+      ranking: macro, periodos: lista.map((p) => p.fecha),
+      bancos: estado.catalogos.bancos.map((b) => ({
+        codigo_banco: b.codigo, banco: b.nombre,
+        posiciones: lista.map((p) => p.rankings[macro].find((f) => f.codigo_banco === b.codigo).posicion),
+        saldos: lista.map((p) => aTexto(p.rankings[macro].find((f) => f.codigo_banco === b.codigo).saldo_actividad)),
+      })),
+    });
+  });
+  app.get('/api/desglose', (req, res) => {
+    const p = fechaDe(req);
+    const macro = rankingDe(req);
+    const banco = req.query.banco ? String(req.query.banco) : null;
+    if (banco && !estado.catalogos.bancoPorCodigo.has(banco)) throw new ErrorDatos(`Banco desconocido: ${banco}.`);
+    res.json({ fecha: p.fecha, ranking: macro, filas: aJson(p.desglose[macro].filter((f) => !banco || f.codigo_banco === banco)) });
+  });
+
+  // --- Comparación entre períodos (analista+)
+  const comparacion = (req) => {
+    const lista = estado.lista();
+    if (lista.length < 2) throw new ErrorDatos('Se necesitan al menos dos períodos cargados para comparar.');
+    const hasta = estado.periodo(String(req.query.hasta || lista.at(-1).fecha));
+    const desde = estado.periodo(String(req.query.desde || estado.anteriorDe(hasta.fecha)?.fecha || lista[0].fecha));
+    if (desde.fecha >= hasta.fecha) throw new ErrorDatos('El período «desde» debe ser anterior a «hasta».');
+    return estado.comparar(desde, hasta);
+  };
+  app.get('/api/movimientos', permiso('comparar'), (req, res) => {
+    const c = comparacion(req);
+    const macro = rankingDe(req, false);
+    res.json({
+      desde: c.desde, hasta: c.hasta, regla: c.regla,
+      filas: aJson(c.filas.filter((f) => !macro || f.ranking === macro)),
+      explicaciones: c.explicaciones.filter((e) => !macro || e.ranking === macro).map((e) => e.texto),
+    });
+  });
+
+  // --- Calidad de datos
+  app.get('/api/calidad', (req, res) => {
+    const p = fechaDe(req);
+    res.json({
+      fecha: p.fecha, archivo: p.archivo, filas_leidas: p.filas_leidas, cascada: p.cascada, universo: p.universo,
+      saldo_universo: aTexto(p.saldo_universo), cuadra: p.cuadra, independientes: p.independientes,
+      reconciliaciones: p.reconciliaciones, alertas: p.alertas, esquema: p.esquema,
+      reclasificadas_sb21: p.indicadores.reclasificadas_sb21,
+    });
+  });
+  app.get('/api/excluidas', permiso('calidad'), (req, res) => {
+    const p = fechaDe(req);
+    const filtro = req.query.filtro ? String(req.query.filtro).toUpperCase() : null;
+    const porPagina = 50;
+    const pagina = Math.max(1, Number(req.query.pagina) || 1);
+    const todas = p.excluidas.filter((e) => !filtro || e.filtro === filtro);
+    res.json({ total: todas.length, pagina, por_pagina: porPagina, filas: todas.slice((pagina - 1) * porPagina, pagina * porPagina) });
+  });
+
+  // --- Exportaciones oficiales
+  app.get('/api/exportar/:archivo', (req, res) => {
+    const tipo = String(req.params.archivo).replace(/\.csv$/, '');
+    if (!generar[tipo]) throw Object.assign(new Error('Exportación desconocida.'), { estado: 404 });
+    const publicas = ['rankings', 'desglose'];
+    if (!publicas.includes(tipo) && !PERMISOS[req.perfil].includes('exportar_todo')) {
+      return res.status(401).json({ error: 'Esta descarga es para analistas y administradores.' });
+    }
+    const todos = estado.lista();
+    const periodos = req.query.fecha ? [estado.periodo(String(req.query.fecha))] : todos;
+    const comparaciones = [];
+    for (let k = 1; k < todos.length; k++) {
+      if (!req.query.fecha || todos[k].fecha === req.query.fecha) comparaciones.push(estado.comparar(todos[k - 1], todos[k]));
+    }
+    const nombre = `${tipo}${req.query.fecha ? `_${req.query.fecha}` : ''}.csv`;
+    registrar(req, 'exportar', nombre);
+    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${nombre}"` });
+    res.send(generar[tipo](periodos, comparaciones));
+  });
+
+  // --- Catálogos y perfiles (consulta)
+  app.get('/api/catalogos', (req, res) => {
+    const c = estado.catalogos;
+    res.json({ cinu: c.listaCinu, sb21: c.listaSb21, bancos: c.bancos });
+  });
+  app.get('/api/perfiles', (req, res) => res.json({
+    perfiles: Object.entries(PERMISOS).map(([id, permisos]) => ({ id, nombre: NOMBRE_PERFIL[id], permisos })),
+  }));
+
+  // --- Administración
+  const subida = multer({ storage: multer.memoryStorage(), limits: { fileSize: 80 * 1024 * 1024, files: 1 } });
+  app.post('/api/periodos', permiso('cargar'), subida.single('archivo'), (req, res) => {
+    if (!req.file) throw new ErrorDatos('Adjunta un archivo CSV en el campo «archivo».');
+    const inicio = Date.now();
+    const { fechas, reemplazo } = estado.cargar(req.file.originalname, req.file.buffer, req.usuario);
+    const procesados = fechas.map((f) => estado.periodo(f));
+    let movimientos = 0;
+    let explicaciones = [];
+    const ultimo = procesados.at(-1);
+    const anterior = estado.anteriorDe(ultimo.fecha);
+    if (anterior) {
+      const c = estado.comparar(anterior, ultimo);
+      movimientos = c.filas.filter((f) => f.significativo).length;
+      explicaciones = c.explicaciones.map((e) => e.texto).slice(0, 10);
+    }
+    registrar(req, reemplazo ? 'actualizar_periodo' : 'cargar_periodo', `${req.file.originalname} · ${procesados.map((p) => `${p.fecha} (${p.filas_leidas} filas)`).join(', ')}`);
+    res.json({
+      procesados: procesados.map((p) => ({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), filas_leidas: p.filas_leidas, universo: p.universo, cascada: p.cascada, cuadra: p.cuadra })),
+      reemplazo, comparado_con: anterior?.fecha || null, movimientos_significativos: movimientos, explicaciones, milisegundos: Date.now() - inicio,
+    });
+  });
+  app.delete('/api/periodos/:fecha', permiso('cargar'), (req, res) => {
+    estado.quitar(String(req.params.fecha));
+    registrar(req, 'quitar_periodo', req.params.fecha);
+    res.json({ ok: true });
+  });
+  app.get('/api/parametros', (req, res) => res.json(estado.parametros));
+  app.put('/api/parametros', permiso('parametros'), (req, res) => {
+    const nuevos = estado.fijarParametros(req.body || {});
+    registrar(req, 'cambiar_parametros', JSON.stringify(nuevos));
+    res.json(nuevos);
+  });
+  app.get('/api/registro', permiso('registro'), (req, res) => res.json(estado.registro()));
+
+  // --- Asistente IA (explica resultados ya calculados)
+  app.post('/api/ia', permiso('asistente'), async (req, res, next) => {
+    try {
+      const pregunta = String(req.body?.pregunta || '').trim().slice(0, 1500);
+      if (!pregunta) throw new ErrorDatos('Escribe una pregunta.');
+      const p = fechaDe({ query: { fecha: req.body?.fecha } });
+      const a = estado.anteriorDe(p.fecha);
+      const contexto = {
+        aviso: AVISO, fuente: FUENTE, periodo: etiquetaPeriodo(p.fecha), periodo_anterior: a ? etiquetaPeriodo(a.fecha) : null,
+        unidad: 'unidades monetarias homogéneas',
+        calidad: { filas_leidas: p.filas_leidas, ...p.cascada, universo_local_valido: p.universo, saldo_universo: aTexto(p.saldo_universo) },
+        rankings: Object.fromEntries(ORDEN_RANKINGS.map((m) => [m, filasRanking(p, m).map((f) => ({ pos: f.posicion, banco: f.banco, saldo: f.saldo_actividad, ponderacion_pct: f.ponderacion_pct, cuota_pct: f.participacion_pct, cambio: f.cambio }))])),
+        movimientos_destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 15).map((e) => e.texto) : [],
+      };
+      const r = await preguntarIA(pregunta, contexto, { comando: entorno.CLAUDE_COMANDO || 'claude' });
+      registrar(req, 'consulta_ia', pregunta.slice(0, 120));
+      res.json(r);
+    } catch (e) { next(e); }
+  });
+
+  // --- Web (React compilada) y rutas del lado del cliente
+  const web = resolve(carpetaWeb);
+  if (existsSync(web)) app.use(express.static(web, { index: false, maxAge: '1h' }));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api/')) return next();
+    const indice = join(web, 'index.html');
+    if (!existsSync(indice)) return res.status(503).send('Falta compilar la web: ejecuta «npm run build».');
+    res.set('Cache-Control', 'no-store').sendFile(indice);
+  });
+
+  // --- Errores con mensajes claros
+  app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, _next) => {
+    if (err instanceof ErrorDatos) return res.status(400).json({ error: err.message });
+    if (err.estado) return res.status(err.estado).json({ error: err.message });
+    if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'El archivo supera 80 MB.' });
+    if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'El cuerpo de la petición no es JSON válido.' });
+    console.error(err);
+    res.status(500).json({ error: 'Error interno. Revisa la consola del servidor.' });
+  });
+  return { app, estado };
+}

@@ -12,7 +12,7 @@
     "servidor": "node servidor/index.js",
     "dev:web": "vite",
     "dev:api": "node --watch servidor/index.js",
-    "test": "node --test pruebas/",
+    "test": "node --test \"pruebas/*.test.js\"",
     "exportar": "node motor/cli.js datos/reto exportaciones"
   },
   "dependencies": {
