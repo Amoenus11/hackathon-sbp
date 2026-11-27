@@ -95,14 +95,14 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       estado.registrar(String(req.body?.usuario || '').slice(0, 40), 'publico', 'sesion_fallida', 'Usuario o contraseña incorrectos');
       return res.status(401).json({ error: r.error });
     }
-    res.cookie(COOKIE, r.token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000 });
+    res.cookie(COOKIE, r.token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000, ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
     estado.registrar(r.usuario, r.perfil, 'iniciar_sesion', `Perfil ${NOMBRE_PERFIL[r.perfil]}`);
     res.json({ perfil: r.perfil, usuario: r.usuario });
   });
   app.delete('/api/sesion', (req, res) => {
     if (req.sesion) registrar(req, 'cerrar_sesion', '');
     sesiones.salir(req.token);
-    res.clearCookie(COOKIE, { path: '/' });
+    res.clearCookie(COOKIE, { path: '/', ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
     res.json({ perfil: 'publico', usuario: null });
   });
 
@@ -117,9 +117,12 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   });
 
   // --- Terminal de Nathalia: Caddy pregunta aquí (forward_auth) antes de dejar pasar a /terminal/
+  // Cada terminal (nathalia.…, gui.…) indica en ?permitidos= quién puede entrar; además el usuario debe
+  // estar en TERMINAL_USUARIOS. Así una persona no puede abrir la terminal de otra.
   const usuariosTerminal = String(entorno.TERMINAL_USUARIOS || '').split(',').map((u) => u.trim()).filter(Boolean);
   app.get('/api/terminal/autorizar', (req, res) => {
-    if (req.usuario && usuariosTerminal.includes(req.usuario)) return res.status(200).end();
+    const permitidos = String(req.query.permitidos || '').split(',').map((u) => u.trim()).filter(Boolean);
+    if (req.usuario && usuariosTerminal.includes(req.usuario) && permitidos.includes(req.usuario)) return res.status(200).end();
     res.status(401).end();
   });
 
