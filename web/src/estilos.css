@@ -736,3 +736,12 @@ h2 { letter-spacing: -0.012em; }
 .chip-perfil { white-space: nowrap; flex-shrink: 0; line-height: 1.2; }
 .chip-usuario { margin-left: .15rem; }
 @media (max-width: 1250px) { .chip-usuario { display: none; } }
+
+/* Cabecera: la marca nunca se corta; la presentación guiada es solo un botón ▶ */
+.cabecera-marca { flex-shrink: 0; }
+.cabecera-textos span { overflow: visible; text-overflow: clip; }
+.boton-solo-icono { width: 40px; height: 40px; padding: 0; justify-content: center; font-size: .95rem; }
+.cabecera-derecha { gap: .7rem; min-width: 0; }
+.selector-periodo select { max-width: 190px; }
+@media (max-width: 1150px) { .selector-periodo > span { display: none; } .estado-demo-periodo { display: none; } }
+@media (max-width: 900px) { .cabecera-textos span { display: none; } }

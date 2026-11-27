@@ -56,16 +56,17 @@ export default function Cabecera({ alAbrirMenu, menuAbierto }) {
 
       <EstadoDemo />
       <div className="cabecera-derecha">
-        <button type="button" className="boton-cabecera boton-guia" onClick={() => setPaso(paso === null ? 0 : null)} aria-pressed={paso !== null}>
-          <span aria-hidden="true">▶</span><span className="texto-largo"> Presentación guiada</span>
+        <button type="button" className="boton-cabecera boton-guia boton-solo-icono" onClick={() => setPaso(paso === null ? 0 : null)} aria-pressed={paso !== null}
+          aria-label={paso === null ? 'Iniciar la presentación guiada' : 'Salir de la presentación guiada'} title="Presentación guiada">
+          <span aria-hidden="true">{paso === null ? '▶' : '■'}</span>
         </button>
         {meta?.periodos?.length > 0 && (
           <label className="selector-periodo">
             <span>Período</span>
-            <select value={fecha || ''} onChange={(e) => setFecha(e.target.value)} aria-label="Período de los datos">
+            <select title={fecha ? `Corte ${fechaCorte(fecha)}` : ''} value={fecha || ''} onChange={(e) => setFecha(e.target.value)} aria-label="Período de los datos">
               {meta.periodos.map((p) => (
                 <option key={p.fecha} value={p.fecha}>
-                  {p.etiqueta} · corte {fechaCorte(p.fecha)}
+                  {p.etiqueta}
                 </option>
               ))}
             </select>
