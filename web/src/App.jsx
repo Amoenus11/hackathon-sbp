@@ -1,12 +1,11 @@
 // Estructura general: cabecera, franja de «datos ficticios», menú lateral según el perfil,
 // contenido de cada página y pie. Cada ruta verifica el perfil antes de mostrarse.
 import { useEffect, useState } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import Recorrido from './componentes/Recorrido.jsx';
 import { useApp } from './contexto.jsx';
 import { SECCIONES, puede } from './permisos.js';
 import Cabecera from './componentes/Cabecera.jsx';
-import FranjaAviso from './componentes/FranjaAviso.jsx';
 import Menu from './componentes/Menu.jsx';
 import Pie from './componentes/Pie.jsx';
 import ModalSesion from './componentes/ModalSesion.jsx';
@@ -63,7 +62,6 @@ export default function App() {
     <div className="app">
       <a className="saltar" href="#contenido">Saltar al contenido</a>
       <Cabecera alAbrirMenu={() => setMenuAbierto((v) => !v)} menuAbierto={menuAbierto} />
-      <FranjaAviso />
       <div className="cuerpo">
         <Menu abierto={menuAbierto} alCerrar={() => setMenuAbierto(false)} />
         <main id="contenido" className="contenido" tabIndex={-1}>
@@ -84,6 +82,11 @@ export default function App() {
       </div>
       <Pie />
       <Recorrido />
+      {ubicacion.pathname !== '/asistente' && ubicacion.pathname !== '/pitch' && (
+        <Link to="/asistente" className="boton-ia-flotante" aria-label="Abrir el asistente IA">
+          <span aria-hidden="true">✦</span> Pregúntale a la IA
+        </Link>
+      )}
       {modalSesion && <ModalSesion />}
     </div>
   );

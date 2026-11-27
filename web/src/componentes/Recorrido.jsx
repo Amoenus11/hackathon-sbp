@@ -11,7 +11,7 @@ import './recorrido.css';
 
 // Cada paso: una ruta, un título, una frase y de 1 a 3 «focos» (selector CSS existente + explicación).
 // Si un selector no aparece en la página, ese foco se muestra solo con su texto.
-export const PASOS = [
+export const PASOS_TODOS = [
   {
     ruta: '/', titulo: 'El crédito en un vistazo', minimo: 'publico',
     texto: 'Cartera local válida, los líderes de cada actividad y lo que cambió este mes, explicado solo.',
@@ -178,6 +178,8 @@ function useRectangulo(selector, activo, alEncontrar) {
 
 export default function Recorrido() {
   const { paso, setPaso, sesion, abrirSesion, modalSesion } = useApp();
+  // Solo los pasos que este perfil puede ver (el Público no pasa por pantallas de administración)
+  const PASOS = PASOS_TODOS.filter((p) => puede(sesion.perfil, p.minimo));
   const navegar = useNavigate();
   const activo = paso !== null && paso !== undefined;
   const actual = activo ? PASOS[paso] : null;
