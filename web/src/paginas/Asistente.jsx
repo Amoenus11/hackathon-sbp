@@ -1,5 +1,6 @@
 // Asistente IA: responde preguntas en lenguaje natural usando SOLO resultados ya calculados por el motor.
 import { useEffect, useRef, useState } from 'react';
+import TextoIA from '../componentes/TextoIA.jsx';
 import { api } from '../api.js';
 import { useApp } from '../contexto.jsx';
 import { EncabezadoPagina, Tarjeta } from '../componentes/Comunes.jsx';
@@ -58,7 +59,7 @@ export default function Asistente() {
           {mensajes.map((m, i) => (
             <div key={i} className={`burbuja burbuja-${m.de} ${m.error ? 'burbuja-error' : ''} ${m.disponible === false ? 'burbuja-aviso' : ''}`}>
               <p className="burbuja-autor">{m.de === 'yo' ? 'Tú' : 'Asistente Syntropy'}</p>
-              <p className="burbuja-texto">{m.texto}</p>
+              <div className="burbuja-texto">{m.de === 'yo' ? m.texto : <TextoIA texto={m.texto} />}</div>
               {m.segundos != null && <p className="burbuja-meta">Respondió en {Number(m.segundos).toFixed(1)} s</p>}
             </div>
           ))}

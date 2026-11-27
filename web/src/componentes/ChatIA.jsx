@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { useApp } from '../contexto.jsx';
 import { SECCIONES } from '../permisos.js';
+import TextoIA from './TextoIA.jsx';
 
 const SUGERENCIAS = {
   '/': ['¿Qué fue lo más importante de este mes?', '¿Quién cambió de líder y por qué?'],
@@ -70,7 +71,7 @@ export default function ChatIA() {
               </div>
             )}
             {mensajes.map((m, i) => (
-              <p key={i} className={`chat-ia-burbuja ${m.de === 'yo' ? 'yo' : 'ia'}${m.error ? ' error' : ''}`}>{m.texto}</p>
+              <div key={i} className={`chat-ia-burbuja ${m.de === 'yo' ? 'yo' : 'ia'}${m.error ? ' error' : ''}`}>{m.de === 'yo' ? m.texto : <TextoIA texto={m.texto} />}</div>
             ))}
             {pensando && <p className="chat-ia-burbuja ia pensando"><span /><span /><span /></p>}
             <div ref={fin} />

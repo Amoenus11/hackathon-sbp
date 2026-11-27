@@ -721,3 +721,18 @@ h2 { letter-spacing: -0.012em; }
 .chat-ia-formulario input:focus { outline: none; border-color: var(--acento); }
 .chat-ia-nota { margin: 0; padding: 0 1rem .6rem; font-size: .72rem; color: var(--texto-3); }
 @media print { .chat-ia { display: none; } }
+
+/* Página del asistente: el chat ocupa la pantalla y la caja para escribir siempre está a la vista */
+.tarjeta-chat { height: calc(100vh - var(--alto-cabecera) - 13.5rem); min-height: 380px; }
+.tarjeta-chat .chat { max-height: none; min-height: 0; flex: 1; }
+.aviso-ia { padding: .55rem .9rem !important; font-size: .85rem; margin-bottom: .9rem !important; }
+.texto-ia p { margin: 0 0 .45rem; }
+.texto-ia p:last-child { margin-bottom: 0; }
+.texto-ia ul { margin: .2rem 0 .5rem; padding-left: 1.15rem; }
+.texto-ia li { margin: .15rem 0; }
+.chat-ia-burbuja .texto-ia { white-space: normal; }
+
+/* Chip del perfil siempre en una línea: «● Administrador · gui» */
+.chip-perfil { white-space: nowrap; flex-shrink: 0; line-height: 1.2; }
+.chip-usuario { margin-left: .15rem; }
+@media (max-width: 1250px) { .chip-usuario { display: none; } }
