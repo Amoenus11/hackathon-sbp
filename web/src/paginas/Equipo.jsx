@@ -7,7 +7,7 @@ const numero = new Intl.NumberFormat('es-PA');
 const PERSONAS = [
   {
     iniciales: 'G',
-    foto: '/equipo/guillermo.png',
+    foto: '/equipo/guillermo.webp',
     nombre: 'Guillermo Aparicio',
     rol: 'Dirección y producto',
     texto: 'Define la estrategia y las prioridades, decide en 2 minutos, dirige a Claude y cuida el reloj del equipo.',
