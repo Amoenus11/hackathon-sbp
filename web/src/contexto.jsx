@@ -10,6 +10,7 @@ export function ProveedorApp({ children }) {
   const [errorMeta, setErrorMeta] = useState(null);
   const [sesion, setSesion] = useState({ perfil: 'publico', usuario: null });
   const [fecha, setFecha] = useState(null);
+  const [paso, setPaso] = useState(null); // presentación guiada: índice del paso o null
   // ?entrar=terminal: viene de nathalia.… o gui.…: se abre el inicio de sesión y luego vuelve a su terminal
   const [modalSesion, setModalSesion] = useState(() => new URLSearchParams(window.location.search).has('entrar'));
 
@@ -32,6 +33,19 @@ export function ProveedorApp({ children }) {
     api.sesion().then(setSesion).catch(() => {});
   }, [recargarMeta]);
 
+  // Si el servidor dice que la sesión ya no vale, la cabecera se pone al día y se pide entrar de nuevo
+  useEffect(() => {
+    const alVencer = async () => {
+      try {
+        const s = await api.sesion();
+        setSesion(s);
+        if (s.perfil === 'publico') setModalSesion(true);
+      } catch { /* sin conexión: no cambiamos nada */ }
+    };
+    window.addEventListener('syntropy:sesion-vencida', alVencer);
+    return () => window.removeEventListener('syntropy:sesion-vencida', alVencer);
+  }, []);
+
   // Período anterior al seleccionado (para comparar «vs mes anterior»)
   const fechaAnterior = useMemo(() => {
     if (!meta || !fecha) return null;
@@ -44,6 +58,7 @@ export function ProveedorApp({ children }) {
     sesion, setSesion,
     fecha, setFecha, fechaAnterior,
     modalSesion, abrirSesion: () => setModalSesion(true), cerrarModalSesion: () => setModalSesion(false),
+    paso, setPaso,
   };
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

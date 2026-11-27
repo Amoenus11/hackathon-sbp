@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useApp } from '../contexto.jsx';
 import { PERFILES } from '../permisos.js';
+import CodigoSeis, { AvisoCodigoDemo } from '../producto/CodigoSeis.jsx';
 
 export default function ModalSesion() {
   const { setSesion, cerrarModalSesion } = useApp();
@@ -10,6 +11,8 @@ export default function ModalSesion() {
   const [clave, setClave] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [desafio, setDesafio] = useState(null); // verificación en 2 pasos (modo producto)
+  const [codigo, setCodigo] = useState('');
   const primerCampo = useRef(null);
 
   useEffect(() => {
@@ -24,7 +27,8 @@ export default function ModalSesion() {
     setError('');
     setEnviando(true);
     try {
-      const s = await api.iniciarSesion(usuario.trim(), clave);
+      const s = desafio ? await api.dosPasos(desafio.desafio, codigo) : await api.iniciarSesion(usuario.trim(), clave);
+      if (s.paso === 'dos_pasos') { setDesafio(s); setCodigo(''); return; }
       setSesion(s);
       cerrarModalSesion();
       if (new URLSearchParams(window.location.search).get('entrar') === 'terminal') {
@@ -32,7 +36,8 @@ export default function ModalSesion() {
         if (terminal) window.location.href = terminal;
       }
     } catch (err) {
-      setError(err.estado === 401 ? 'Usuario o contraseña incorrectos.' : err.message);
+      setError(err.estado === 401 && !desafio ? 'Usuario o contraseña incorrectos.' : err.message);
+      if (desafio) setCodigo('');
     } finally {
       setEnviando(false);
     }
@@ -50,6 +55,13 @@ export default function ModalSesion() {
           <strong>{PERFILES.analista.nombre}</strong> o <strong>{PERFILES.administrador.nombre}</strong>.
         </p>
         <form onSubmit={enviar} className="formulario">
+          {desafio ? (
+            <>
+              <p className="nota">Escribe el código de 6 dígitos de tu app autenticadora.</p>
+              <AvisoCodigoDemo codigo={desafio.codigo_demo} />
+              <CodigoSeis valor={codigo} alCambiar={setCodigo} deshabilitado={enviando} />
+            </>
+          ) : (<>
           <label className="campo">
             <span>Usuario</span>
             <input ref={primerCampo} value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="username" autoCapitalize="none" required />
@@ -58,9 +70,10 @@ export default function ModalSesion() {
             <span>Contraseña</span>
             <input type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="current-password" required />
           </label>
+          </>)}
           {error && <p className="mensaje-error" role="alert">{error}</p>}
           <button className="boton boton-primario boton-ancho" type="submit" disabled={enviando}>
-            {enviando ? 'Verificando…' : 'Entrar'}
+            {enviando ? 'Verificando…' : desafio ? 'Verificar' : 'Entrar'}
           </button>
         </form>
         <p className="nota nota-pequena">Las cuentas se crean al instalar la aplicación; no hay contraseñas guardadas en el repositorio.</p>

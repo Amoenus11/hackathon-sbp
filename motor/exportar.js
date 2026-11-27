@@ -10,6 +10,8 @@ export const COLUMNAS = {
   excluidas: ['Fecha', 'Fila', 'Numero_Prestamo', 'Codigo_Banco', 'Filtro', 'Motivo'],
   // Complemento del reporte de calidad (no es uno de los 5 entregables oficiales): alertas que no excluyen filas
   alertas: ['Fecha', 'Tipo', 'Severidad', 'Cantidad', 'Descripcion', 'Reconciliaciones_Con_Diferencias'],
+  anatomia: ['Fecha_Anterior', 'Fecha_Actual', 'Ranking', 'Codigo_Banco', 'Banco', 'Saldo_Anterior', 'Prestamos_Nuevos', 'Saldo_Nuevos',
+    'Prestamos_Terminados', 'Saldo_Terminados', 'Prestamos_Que_Siguen', 'Variacion_Que_Siguen', 'Saldo_Actual'],
 };
 
 export function filasRankings(periodos) {
@@ -81,6 +83,23 @@ export function filasAlertas(periodos) {
   return filas;
 }
 
+export function filasAnatomia(comparaciones) {
+  const filas = [];
+  for (const c of comparaciones) {
+    for (const f of c.filas) {
+      const a = f.anatomia;
+      if (!a) continue;
+      filas.push({
+        Fecha_Anterior: f.fecha_anterior, Fecha_Actual: f.fecha_actual, Ranking: f.ranking, Codigo_Banco: f.codigo_banco, Banco: f.banco,
+        Saldo_Anterior: aTexto(f.saldo_anterior), Prestamos_Nuevos: a.n_nuevos, Saldo_Nuevos: aTexto(a.nuevos),
+        Prestamos_Terminados: a.n_terminados, Saldo_Terminados: aTexto(a.terminados), Prestamos_Que_Siguen: a.n_siguen,
+        Variacion_Que_Siguen: aTexto(a.variacion), Saldo_Actual: aTexto(f.saldo_actual),
+      });
+    }
+  }
+  return filas;
+}
+
 export const generar = {
   rankings: (periodos) => escribirCsv(COLUMNAS.rankings, filasRankings(periodos)),
   desglose: (periodos) => escribirCsv(COLUMNAS.desglose, filasDesglose(periodos)),
@@ -88,4 +107,5 @@ export const generar = {
   movimientos: (_periodos, comparaciones) => escribirCsv(COLUMNAS.movimientos, filasMovimientos(comparaciones)),
   excluidas: (periodos) => escribirCsv(COLUMNAS.excluidas, filasExcluidas(periodos)),
   alertas: (periodos) => escribirCsv(COLUMNAS.alertas, filasAlertas(periodos)),
+  anatomia: (_periodos, comparaciones) => escribirCsv(COLUMNAS.anatomia, filasAnatomia(comparaciones)),
 };

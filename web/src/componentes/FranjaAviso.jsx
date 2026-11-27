@@ -15,8 +15,9 @@ export default function FranjaAviso() {
       {meta?.avisos?.length > 0 && (
         <span className="franja-texto" role="alert"><strong>Atención:</strong> {meta.avisos[0]}{meta.avisos.length > 1 ? ` (+${meta.avisos.length - 1} más)` : ''}</span>
       )}
-      <span className="franja-aviso-largo">
-        {meta?.aviso || 'Datos 100 % ficticios con fines de demostración. No representan al sistema bancario panameño ni constituyen opinión formal de la SBP.'}
+      <span className="separador" aria-hidden="true">·</span>
+      <span className="franja-aviso-largo" title={meta?.aviso || ''}>
+        Uso informativo; no constituye opinión formal de la SBP
       </span>
     </div>
   );

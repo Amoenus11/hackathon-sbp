@@ -7,9 +7,11 @@ import { crearEstado } from './estado.js';
 import { crearSesiones, usuariosDesdeEntorno, PERMISOS, NOMBRE_PERFIL } from './sesion.js';
 import { preguntarIA } from './ia.js';
 import { crearCuentas } from './cuentas.js';
+import { crearProducto } from './producto.js';
+import { opciones as opcionesExtraccion, extraer, comoCsv, comoExcel } from './extraccion.js';
 import {
   ORDEN_RANKINGS, TIPO_RANKING, TITULO_RANKING, VERSION_MOTOR, ErrorDatos,
-  etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje, mesesEntre,
+  etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje, mesesEntre, puenteEntreMeses,
 } from '../motor/motor.js';
 import { generar } from '../motor/exportar.js';
 
@@ -21,7 +23,10 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   const estado = crearEstado({ carpetaReto, carpetaLocal, inicial: entorno.CARGA_INICIAL || 'todos' });
   const usuariosEnv = usuariosDesdeEntorno(entorno);
   const cuentas = entorno.CUENTAS ? crearCuentas(carpetaLocal, entorno.CUENTAS, entorno.URL_PUBLICA || '') : null;
-  const sesiones = crearSesiones((n) => usuariosEnv.get(n) || cuentas?.lista().find((c) => c.usuario === n));
+  const modo = entorno.MODO === 'producto' ? 'producto' : 'demo';
+  const producto = modo === 'producto' ? crearProducto(carpetaLocal) : null;
+  const sesiones = crearSesiones((n) => usuariosEnv.get(n) || cuentas?.lista().find((c) => c.usuario === n) || producto?.buscar(n),
+    { archivo: join(carpetaLocal, 'sesiones.json') });
   if (entorno.RESULTADOS_DIR) estado.publicarEn(entorno.RESULTADOS_DIR);
   const seguro = entorno.COOKIE_SEGURA === '1';
   const app = express();
@@ -42,9 +47,10 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
 
   // --- Sesión: público por defecto
   app.use((req, res, next) => {
-    const token = (req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).find(([k]) => k === COOKIE)?.[1];
-    req.token = token;
-    req.sesion = sesiones.leer(token);
+    // Todas las cookies con nuestro nombre (puede haber una vieja de antes del cambio de dominio)
+    const tokens = (req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).filter(([k, v]) => k === COOKIE && v).map(([, v]) => v);
+    req.token = tokens;
+    req.sesion = sesiones.leer(tokens);
     req.perfil = req.sesion?.perfil || 'publico';
     req.usuario = req.sesion?.usuario || null;
     if (['POST', 'PUT', 'DELETE'].includes(req.method) && req.path.startsWith('/api/') && req.get('X-Syntropy') !== '1') {
@@ -104,14 +110,47 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       estado.registrar(String(req.body?.usuario || '').slice(0, 40), 'publico', 'sesion_fallida', 'Usuario o contraseña incorrectos');
       return res.status(401).json({ error: r.error });
     }
+    if (entorno.COOKIE_DOMINIO) res.clearCookie(COOKIE, { path: '/' });
+    if (producto && producto.tieneDosPasos(r.usuario)) {
+      // Contraseña correcta, pero falta el segundo paso: la cookie se entrega al confirmar el código
+      return res.json({ paso: 'dos_pasos', ...producto.retener(r.usuario, r.token) });
+    }
     res.cookie(COOKIE, r.token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000, ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
     estado.registrar(r.usuario, r.perfil, 'iniciar_sesion', `Perfil ${NOMBRE_PERFIL[r.perfil]}`);
-    res.json({ perfil: r.perfil, usuario: r.usuario });
+    res.json({ perfil: r.perfil, usuario: r.usuario, ...(producto ? { configurar_dos_pasos: true } : {}) });
   });
+  const cookieSesion = (res, token) => res.cookie(COOKIE, token, { httpOnly: true, sameSite: 'strict', secure: seguro, path: '/', maxAge: 8 * 3600 * 1000, ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
+  if (producto) {
+    app.get('/api/cuentas', (req, res) => res.json(producto.lista()));
+    app.post('/api/cuentas', (req, res) => {
+      const c = producto.crear(req.body || {});
+      estado.registrar(c.usuario, c.perfil, 'crear_cuenta', `${c.nombre} · perfil ${NOMBRE_PERFIL[c.perfil]}`);
+      res.json(c);
+    });
+    app.post('/api/sesion/dos-pasos', (req, res) => {
+      const d = producto.resolver(req.body?.desafio, req.body?.codigo);
+      const s = sesiones.leer(d.token);
+      cookieSesion(res, d.token);
+      estado.registrar(d.usuario, s?.perfil, 'iniciar_sesion', 'Con verificación en 2 pasos');
+      res.json({ perfil: s?.perfil, usuario: d.usuario });
+    });
+    app.post('/api/dos-pasos/configurar', (req, res) => {
+      if (!req.usuario) return res.status(401).json({ error: 'Inicia sesión.' });
+      res.json(producto.configurar(req.usuario));
+    });
+    app.post('/api/dos-pasos/confirmar', (req, res) => {
+      if (!req.usuario) return res.status(401).json({ error: 'Inicia sesión.' });
+      producto.confirmar(req.usuario, req.body?.codigo);
+      registrar(req, 'activar_dos_pasos', 'Verificación en 2 pasos activada');
+      res.json({ ok: true });
+    });
+    app.post('/api/dos-pasos/omitir', (req, res) => res.json({ ok: true }));
+  }
   app.delete('/api/sesion', (req, res) => {
     if (req.sesion) registrar(req, 'cerrar_sesion', '');
     sesiones.salir(req.token);
     res.clearCookie(COOKIE, { path: '/', ...(entorno.COOKIE_DOMINIO ? { domain: entorno.COOKIE_DOMINIO } : {}) });
+    res.clearCookie(COOKIE, { path: '/' }); // también la cookie antigua, solo de syntropy.com.pa
     res.json({ perfil: 'publico', usuario: null });
   });
 
@@ -145,7 +184,8 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       rankings: ORDEN_RANKINGS.map((r) => ({ nombre: r, titulo: TITULO_RANKING[r], tipo: TIPO_RANKING[r], subactividades: c.subactividades[r] })),
       bancos: c.bancos.map((b) => ({ codigo: b.codigo, nombre: b.nombre })),
       fuente: FUENTE, aviso: AVISO, parametros: estado.parametros, permisos: PERMISOS, version_motor: VERSION_MOTOR,
-      perfil: req.perfil, usuario: req.usuario,
+      perfil: req.perfil, usuario: req.usuario, modo,
+      nombre: producto && req.usuario ? producto.buscar(req.usuario)?.nombre || null : null,
     });
   });
 
@@ -254,13 +294,45 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     });
   });
 
+  // --- Anatomía del cambio (para todos): por qué cambió el saldo de un banco entre dos meses
+  app.get('/api/anatomia', (req, res) => {
+    const c = comparacion(req);
+    const macro = rankingDe(req);
+    const banco = req.query.banco ? String(req.query.banco) : null;
+    const filas = c.filas.filter((f) => f.ranking === macro && (!banco || f.codigo_banco === banco)).map((f) => {
+      const a = f.anatomia;
+      return {
+        codigo_banco: f.codigo_banco, banco: f.banco, posicion_anterior: f.posicion_anterior, posicion_actual: f.posicion_actual, cambio: f.cambio,
+        saldo_anterior: aTexto(f.saldo_anterior), saldo_actual: aTexto(f.saldo_actual), var_saldo_pct: f.var_saldo_pct,
+        nuevos: aTexto(a.nuevos), n_nuevos: a.n_nuevos, terminados: aTexto(a.terminados), n_terminados: a.n_terminados,
+        variacion: aTexto(a.variacion), n_siguen: a.n_siguen,
+        cuadra: f.saldo_anterior + a.nuevos - a.terminados + a.variacion === f.saldo_actual,
+      };
+    });
+    res.json({ desde: c.desde, hasta: c.hasta, ranking: macro, filas });
+  });
+
   // --- Calidad de datos
+  // Reconciliación 4 (más allá de lo pedido): el puente entre el mes anterior y este, al centavo
+  const r4 = (p) => {
+    const a = estado.anteriorDe(p.fecha);
+    if (!a) return null;
+    const b = puenteEntreMeses(a, p);
+    return {
+      id: 'R4', nombre: `Puente entre meses: ${etiquetaCorta(a.fecha)} + nuevos − terminados ± variación = ${etiquetaCorta(p.fecha)}`,
+      ok: b.cuadra, revisados: b.n_nuevos + b.n_terminados + b.n_siguen, diferencias: b.cuadra ? 0 : 1,
+      detalle: `${aTexto(b.saldo_anterior)} + ${aTexto(b.nuevos)} − ${aTexto(b.terminados)} ${b.variacion < 0n ? '−' : '+'} ${aTexto(b.variacion < 0n ? -b.variacion : b.variacion)} = ${aTexto(b.saldo_actual)}`,
+      puente: aJson(b),
+      nota: `Ningún préstamo desaparece sin explicación: ${b.vencian} de ${b.n_terminados} que salieron vencían en ${etiquetaPeriodo(p.fecha)} o antes.`,
+    };
+  };
   app.get('/api/calidad', permiso('calidad'), (req, res) => {
     const p = fechaDe(req);
+    const cuarta = r4(p);
     res.json({
       fecha: p.fecha, archivo: p.archivo, archivos: p.archivos, filas_leidas: p.filas_leidas, cascada: p.cascada, universo: p.universo,
       saldo_universo: aTexto(p.saldo_universo), cuadra: p.cuadra, independientes: p.independientes,
-      reconciliaciones: p.reconciliaciones, alertas: p.alertas, esquema: p.esquema,
+      reconciliaciones: cuarta ? [...p.reconciliaciones, cuarta] : p.reconciliaciones, alertas: p.alertas, esquema: p.esquema,
       reclasificadas_sb21: p.indicadores.reclasificadas_sb21,
     });
   });
@@ -271,6 +343,78 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     const pagina = Math.max(1, Number(req.query.pagina) || 1);
     const todas = p.excluidas.filter((e) => !filtro || e.filtro === filtro);
     res.json({ total: todas.length, pagina, por_pagina: porPagina, filas: todas.slice((pagina - 1) * porPagina, pagina * porPagina) });
+  });
+
+  // --- Semáforo de publicación (analista+): los controles de la Sección 12, en verde o rojo, y la firma
+  const controles = (p) => {
+    const c = [];
+    const { E1, E2, E3, E4 } = p.cascada;
+    c.push({ id: 'cascada', texto: 'Filas leídas = E1 + E2 + E3 + E4 + universo local válido', ok: p.cuadra, detalle: `${p.filas_leidas} = ${E1} + ${E2} + ${E3} + ${E4} + ${p.universo}` });
+    c.push({ id: 'esquema', texto: '61 columnas en el orden del diccionario; códigos leídos como texto (07 sigue siendo 07)', ok: p.esquema.ok, detalle: `${p.esquema.columnas} columnas` });
+    const unico = p.reconciliaciones.find((r) => r.id === 'U');
+    c.push({ id: 'unicos', texto: 'Ningún Numero_Prestamo se repite en el universo local válido', ok: unico.ok, detalle: `${p.universo} préstamos únicos` });
+    const completos = ORDEN_RANKINGS.every((m) => p.rankings[m].length === 12 && p.rankings[m].every((f, i) => f.posicion === i + 1));
+    c.push({ id: 'rankings', texto: '6 rankings con 12 bancos y posiciones 1 a 12 sin huecos', ok: completos, detalle: '6 × 12' });
+    for (const r of p.reconciliaciones.filter((x) => ['R1', 'R2', 'R3'].includes(x.id))) c.push({ id: r.id, texto: `${r.id} · ${r.nombre}`, ok: r.ok, detalle: `${r.revisados} revisados, ${r.diferencias} diferencias` });
+    const cuarta = r4(p);
+    if (cuarta) c.push({ id: 'R4', texto: `R4 · ${cuarta.nombre}`, ok: cuarta.ok, detalle: cuarta.detalle });
+    const consumoOk = estado.catalogos.bancos.every((b) => {
+      const suma = p.desglose.CONSUMO.filter((f) => f.codigo_banco === b.codigo).reduce((t, f) => t + f.saldo, 0n);
+      return suma === p.rankings.CONSUMO.find((f) => f.codigo_banco === b.codigo).saldo_actividad;
+    });
+    c.push({ id: 'consumo', texto: 'El total de CONSUMO por banco es igual con o sin la regla SB21', ok: consumoOk, detalle: `${p.indicadores.reclasificadas_sb21} operaciones reclasificadas a Tarjeta` });
+    const denominador = estado.catalogos.bancos.every((b) => new Set(ORDEN_RANKINGS.map((m) => p.rankings[m].find((f) => f.codigo_banco === b.codigo).total_cartera)).size === 1);
+    c.push({ id: 'denominador', texto: 'El mismo denominador (cartera total del banco) en los 6 rankings', ok: denominador, detalle: '12 bancos' });
+    const sinAlertasGraves = !p.alertas.some((a) => a.severidad === 'alta');
+    c.push({ id: 'alertas', texto: 'Sin alertas graves de integridad (bancos o saldos desconocidos)', ok: sinAlertasGraves, detalle: `${p.alertas.length} alertas` });
+    return c;
+  };
+  app.get('/api/controles', permiso('reportes'), (req, res) => {
+    const p = fechaDe(req);
+    const lista = controles(p);
+    res.json({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), controles: lista, ok: lista.every((x) => x.ok), firmas: estado.firmas(p.fecha) });
+  });
+  app.post('/api/publicaciones', permiso('reportes'), (req, res) => {
+    const p = estado.periodo(String(req.body?.fecha || ''));
+    const nombre = String(req.body?.nombre || '').trim().slice(0, 80);
+    if (!nombre) throw new ErrorDatos('Escribe tu nombre para firmar.');
+    const lista = controles(p);
+    if (!lista.every((x) => x.ok)) throw new ErrorDatos('No se puede firmar: hay controles en rojo.');
+    const firma = { fecha: p.fecha, nombre, usuario: req.usuario, cuando: new Date().toISOString(), controles: lista.length };
+    estado.firmar(firma);
+    registrar(req, 'firmar_publicacion', `${etiquetaPeriodo(p.fecha)} · ${lista.length} de ${lista.length} controles ✓ · firma: ${nombre}`);
+    res.json(firma);
+  });
+
+  // --- Carta de calidad al banco (analista+): sus filas excluidas, para pedir correcciones
+  app.get('/api/carta', permiso('calidad'), (req, res) => {
+    const p = fechaDe(req);
+    const banco = estado.catalogos.bancoPorCodigo.get(String(req.query.banco || ''));
+    if (!banco) throw new ErrorDatos('Elige un banco.');
+    const filas = p.excluidas.filter((e) => e.codigo_banco === banco.codigo);
+    const cuenta = { E1: 0, E2: 0, E3: 0, E4: 0 };
+    for (const e of filas) cuenta[e.filtro]++;
+    res.json({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), codigo_banco: banco.codigo, banco: banco.nombre, conteos: cuenta, filas });
+  });
+
+  // --- Descarga a tu medida (todos los perfiles): solo lo que la persona elige
+  app.get('/api/extraccion/opciones', (req, res) => res.json(opcionesExtraccion(estado)));
+  app.post('/api/extraccion', async (req, res, next) => {
+    try {
+      const pedido = req.body || {};
+      const { columnas, filas, saldo_total } = extraer(estado, pedido);
+      const formato = ['csv', 'xlsx'].includes(pedido.formato) ? pedido.formato : 'json';
+      if (formato === 'json') {
+        return res.json({ total_filas: filas.length, columnas, filas: filas.slice(0, 20), saldo_total: aTexto(saldo_total),
+          nota: 'Vista previa de las primeras 20 filas. Datos 100 % ficticios.' });
+      }
+      if (filas.length > 200000) throw new ErrorDatos('Son demasiadas filas para una descarga: filtra un poco más.');
+      const nombre = `syntropy_extraccion_${(pedido.cortes || []).join('-') || 'todos'}.${formato}`;
+      registrar(req, 'descarga_medida', `${nombre} · ${filas.length} filas · ${pedido.nivel === 'resumen' ? 'resumen' : 'detalle'}`);
+      res.set('Content-Disposition', `attachment; filename="${nombre}"`);
+      if (formato === 'csv') return res.type('text/csv; charset=utf-8').send(comoCsv(columnas, filas));
+      res.type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').send(await comoExcel(columnas, filas));
+    } catch (e) { next(e); }
   });
 
   // --- Exportaciones oficiales
@@ -304,18 +448,17 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
 
   // --- Administración
   const subida = multer({ storage: multer.memoryStorage(), limits: { fileSize: 80 * 1024 * 1024, files: 1 } });
-  app.post('/api/periodos', permiso('cargar'), subida.single('archivo'), (req, res) => {
-    if (!req.file) throw new ErrorDatos('Adjunta un archivo CSV en el campo «archivo».');
+  app.post('/api/periodos', permiso('cargar'), subida.single('archivo'), async (req, res) => {
+    if (!req.file) throw new ErrorDatos('Adjunta un archivo CSV o Excel en el campo «archivo».');
     const inicio = Date.now();
-    let carga;
+    let cargado;
     try {
-      carga = estado.cargar(req.file.originalname, req.file.buffer, req.usuario);
+      cargado = await estado.cargar(req.file.originalname, req.file.buffer, req.usuario);
     } catch (e) {
-      // Los rechazos también quedan en el registro: sirve para saber qué se intentó cargar y por qué falló.
-      if (e instanceof ErrorDatos) registrar(req, 'carga_rechazada', `${req.file.originalname} · ${e.message}`.slice(0, 300));
+      registrar(req, 'carga_fallida', `${req.file.originalname} · ${e.message}`.slice(0, 300));
       throw e;
     }
-    const { fechas, reemplazo, reemplazados, avisos } = carga;
+    const { fechas, reemplazo, reemplazados, avisos, conversion } = cargado;
     const procesados = fechas.map((f) => estado.periodo(f));
     let movimientos = 0;
     let explicaciones = [];
@@ -333,7 +476,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     registrar(req, reemplazo ? 'actualizar_periodo' : 'cargar_periodo', `${req.file.originalname} · ${procesados.map((p) => `${p.fecha} (${p.filas_leidas} filas)`).join(', ')}${avisos.length ? ` · ${avisos.length} aviso(s)` : ''}`);
     res.json({
       procesados: procesados.map((p) => ({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), filas_leidas: p.filas_leidas, universo: p.universo, cascada: p.cascada, cuadra: p.cuadra })),
-      reemplazo, reemplazados, avisos, comparado_con: anterior?.fecha || null, movimientos_significativos: movimientos, explicaciones, milisegundos: Date.now() - inicio,
+      reemplazo, reemplazados, avisos, comparado_con: anterior?.fecha || null, movimientos_significativos: movimientos, explicaciones, milisegundos: Date.now() - inicio, conversion,
     });
   });
   app.delete('/api/periodos/:fecha', permiso('cargar'), (req, res) => {
@@ -347,11 +490,42 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     registrar(req, 'parametros', JSON.stringify(nuevos));
     res.json(nuevos);
   });
+  // --- Usuarios y roles (solo administrador): cambiar el perfil de una cuenta, con cuidado
+  const todasLasCuentas = () => [...(cuentas?.lista() || []), ...(producto?.lista() || [])];
+  app.get('/api/usuarios', permiso('perfiles'), (req, res) => res.json(todasLasCuentas().map(({ usuario, perfil, nombre }) => ({ usuario, perfil, nombre: nombre || usuario, soy_yo: usuario === req.usuario }))));
+  app.put('/api/usuarios/:usuario', permiso('perfiles'), (req, res) => {
+    const usuario = String(req.params.usuario);
+    const perfil = String(req.body?.perfil || '');
+    if (!['analista', 'administrador'].includes(perfil)) throw new ErrorDatos('Perfil no válido: elige Analista o Administrador.');
+    const lista = todasLasCuentas();
+    const actual = lista.find((c) => c.usuario === usuario);
+    if (!actual) throw Object.assign(new Error('No existe ese usuario.'), { estado: 404 });
+    if (actual.perfil === 'administrador' && perfil !== 'administrador' && lista.filter((c) => c.perfil === 'administrador').length <= 1) {
+      throw new ErrorDatos('Debe quedar al menos un administrador.');
+    }
+    if (!(cuentas?.fijarPerfil(usuario, perfil) || producto?.fijarPerfil(usuario, perfil))) throw new ErrorDatos('No se pudo cambiar el perfil.');
+    registrar(req, 'cambiar_perfil', `${usuario}: ${NOMBRE_PERFIL[actual.perfil]} → ${NOMBRE_PERFIL[perfil]}`);
+    res.json({ usuario, perfil });
+  });
   app.get('/api/registro', permiso('registro'), (req, res) => res.json(estado.registro()));
+  app.get('/api/cargas', permiso('calidad'), (req, res) => res.json(estado.cargas()));
 
   // --- Asistente IA (explica resultados ya calculados)
+  // Límite para el perfil Público: 8 preguntas cada 10 minutos por dirección IP (cuida la suscripción).
+  const preguntasPorIp = new Map();
+  const limiteIa = (req) => {
+    if (req.perfil !== 'publico') return false;
+    const ip = req.get('Cf-Connecting-Ip') || req.ip || '?';
+    const ahora = Date.now();
+    const recientes = (preguntasPorIp.get(ip) || []).filter((t) => ahora - t < 10 * 60 * 1000);
+    if (recientes.length >= 8) return true;
+    recientes.push(ahora);
+    preguntasPorIp.set(ip, recientes);
+    return false;
+  };
   app.post('/api/ia', permiso('asistente'), async (req, res, next) => {
     try {
+      if (limiteIa(req)) return res.status(429).json({ error: 'Llegaste al límite de preguntas del perfil Público (8 cada 10 minutos). Inicia sesión o intenta en unos minutos.' });
       const pregunta = String(req.body?.pregunta || '').trim().slice(0, 1500);
       if (!pregunta) throw new ErrorDatos('Escribe una pregunta.');
       const p = fechaDe({ query: { fecha: req.body?.fecha } });
@@ -365,6 +539,19 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
         rankings: Object.fromEntries(ORDEN_RANKINGS.map((m) => [m, filasRanking(p, m).map((f) => ({ pos: f.posicion, banco: f.banco, saldo: f.saldo_actividad, ponderacion_pct: f.ponderacion_pct, cuota_pct: f.participacion_pct, cambio: f.cambio }))])),
         movimientos_destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 15).map((e) => e.texto) : [],
       };
+      // La pantalla donde está la persona: la IA le da preferencia (por ejemplo, el ranking o el banco que mira)
+      const pantalla = req.body?.pantalla && typeof req.body.pantalla === 'object' ? req.body.pantalla : null;
+      if (pantalla) {
+        contexto.pantalla_actual = { ruta: String(pantalla.ruta || '').slice(0, 80), titulo: String(pantalla.titulo || '').slice(0, 80), filtros: String(pantalla.filtros || '').slice(0, 200) };
+        contexto.instruccion_pantalla = 'Responde primero desde lo que la persona ve en pantalla_actual; usa el resto del contexto solo si hace falta.';
+        const macro = String(pantalla.ranking || '').toUpperCase();
+        if (a && ORDEN_RANKINGS.includes(macro)) {
+          contexto.anatomia_del_ranking_en_pantalla = estado.comparar(a, p).filas.filter((f) => f.ranking === macro).map((f) => ({
+            banco: f.banco, pos: f.posicion_actual, cambio: f.cambio, nuevos: aTexto(f.anatomia.nuevos), n_nuevos: f.anatomia.n_nuevos,
+            terminados: aTexto(f.anatomia.terminados), n_terminados: f.anatomia.n_terminados, amortizacion: aTexto(f.anatomia.variacion),
+          }));
+        }
+      }
       const r = await preguntarIA(pregunta, contexto, { comando: entorno.CLAUDE_COMANDO || 'claude', asistenteUrl: entorno.ASISTENTE_URL });
       registrar(req, 'consulta_ia', pregunta.slice(0, 120));
       res.json(r);
@@ -385,7 +572,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada.' }));
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, _next) => {
-    if (err instanceof ErrorDatos) return res.status(400).json({ error: err.message });
+    if (err instanceof ErrorDatos) return res.status(400).json({ error: err.message, ...(err.detalle ? { detalle: err.detalle } : {}) });
     if (err.estado) return res.status(err.estado).json({ error: err.message });
     if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'El archivo supera 80 MB.' });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'El cuerpo de la petición no es JSON válido.' });

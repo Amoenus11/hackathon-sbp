@@ -45,7 +45,10 @@ async function solicitar(ruta, { metodo = 'GET', cuerpo } = {}) {
   const esJson = (respuesta.headers.get('content-type') || '').includes('application/json');
   const datos = esJson ? await respuesta.json().catch(() => null) : null;
   if (!respuesta.ok) {
-    throw new ErrorApi(datos?.error || MENSAJES[respuesta.status] || `Error ${respuesta.status}`, respuesta.status);
+    if (respuesta.status === 401 && ruta !== '/sesion') window.dispatchEvent(new CustomEvent('syntropy:sesion-vencida'));
+    const error = new ErrorApi(datos?.error || MENSAJES[respuesta.status] || `Error ${respuesta.status}`, respuesta.status);
+    error.datos = datos; // por ejemplo, el detalle de columnas que faltan o sobran
+    throw error;
   }
   return datos;
 }
@@ -64,7 +67,11 @@ function subirArchivo(ruta, archivo, alProgreso) {
       let datos = null;
       try { datos = JSON.parse(xhr.responseText); } catch { /* sin JSON */ }
       if (xhr.status >= 200 && xhr.status < 300) resolver(datos);
-      else rechazar(new ErrorApi(datos?.error || MENSAJES[xhr.status] || `Error ${xhr.status}`, xhr.status));
+      else {
+        const error = new ErrorApi(datos?.error || MENSAJES[xhr.status] || `Error ${xhr.status}`, xhr.status);
+        error.datos = datos; // detalle: columnas que faltan o sobran y sugerencias
+        rechazar(error);
+      }
     };
     xhr.onerror = () => rechazar(new ErrorApi('No se pudo conectar con el servidor.', 0));
     const formulario = new FormData();
@@ -86,6 +93,7 @@ export const api = {
   matriz: (fecha) => solicitar(`/matriz${consulta({ fecha })}`),
   historia: (ranking) => solicitar(`/historia${consulta({ ranking })}`),
   desglose: (fecha, ranking, banco) => solicitar(`/desglose${consulta({ fecha, ranking, banco })}`),
+  anatomia: (hasta, ranking, banco) => solicitar(`/anatomia${consulta({ hasta, ranking, banco })}`),
   movimientos: ({ desde, hasta, ranking }) => solicitar(`/movimientos${consulta({ desde, hasta, ranking })}`),
   calidad: (fecha) => solicitar(`/calidad${consulta({ fecha })}`),
   excluidas: ({ fecha, filtro, pagina }) => solicitar(`/excluidas${consulta({ fecha, filtro, pagina })}`),
@@ -98,11 +106,57 @@ export const api = {
   catalogos: () => solicitar('/catalogos'),
   registro: () => solicitar('/registro'),
 
+  // Publicación (semáforo de controles y firma) y carta de calidad al banco
+  controles: (fecha) => solicitar(`/controles${consulta({ fecha })}`),
+  firmar: (fecha, nombre) => solicitar('/publicaciones', { metodo: 'POST', cuerpo: { fecha, nombre } }),
+  carta: (fecha, banco) => solicitar(`/carta${consulta({ fecha, banco })}`),
+
+  // Modo producto (demo.syntropy.com.pa): cuentas, verificación en 2 pasos e historial de cargas
+  cuentas: () => solicitar('/cuentas'),
+  crearCuenta: (usuario, nombre, clave) => solicitar('/cuentas', { metodo: 'POST', cuerpo: { usuario, nombre, clave } }),
+  dosPasos: (desafio, codigo) => solicitar('/sesion/dos-pasos', { metodo: 'POST', cuerpo: { desafio, codigo } }),
+  configurarDosPasos: () => solicitar('/dos-pasos/configurar', { metodo: 'POST' }),
+  confirmarDosPasos: (codigo) => solicitar('/dos-pasos/confirmar', { metodo: 'POST', cuerpo: { codigo } }),
+  omitirDosPasos: () => solicitar('/dos-pasos/omitir', { metodo: 'POST' }),
+  cargas: () => solicitar('/cargas'),
+
+  // Descarga a tu medida: opciones y vista previa (el archivo se baja con descargarExtraccion)
+  opcionesExtraccion: () => solicitar('/extraccion/opciones'),
+  extraer: (cuerpo) => solicitar('/extraccion', { metodo: 'POST', cuerpo: { ...cuerpo, formato: 'json' } }),
+
   // Asistente IA (solo explica resultados ya calculados)
-  preguntarIA: (pregunta, fecha) => solicitar('/ia', { metodo: 'POST', cuerpo: { pregunta, fecha } }),
+  usuarios: () => solicitar('/usuarios'),
+  cambiarPerfil: (usuario, perfil) => solicitar(`/usuarios/${encodeURIComponent(usuario)}`, { metodo: 'PUT', cuerpo: { perfil } }),
+  preguntarIA: (pregunta, fecha, pantalla) => solicitar('/ia', { metodo: 'POST', cuerpo: { pregunta, fecha, pantalla } }),
 };
 
 // Enlace de descarga directa de un CSV (sin fecha = todos los períodos).
 export function urlExportar(tipo, fecha) {
   return `${BASE}/exportar/${tipo}.csv${consulta({ fecha })}`;
+}
+
+// Descarga a tu medida: pide el archivo (CSV o Excel) y lo guarda con el nombre que da el servidor.
+export async function descargarExtraccion(cuerpo, formato) {
+  let r;
+  try {
+    r = await fetch(`${BASE}/extraccion`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Syntropy': '1' },
+      body: JSON.stringify({ ...cuerpo, formato }),
+    });
+  } catch {
+    throw new ErrorApi('No se pudo conectar con el servidor.', 0);
+  }
+  if (!r.ok) {
+    const d = await r.json().catch(() => null);
+    throw new ErrorApi(d?.error || MENSAJES[r.status] || `Error ${r.status}`, r.status);
+  }
+  const disp = r.headers.get('content-disposition') || '';
+  const nombre = /filename="?([^";]+)"?/.exec(disp)?.[1] || `syntropy_extraccion.${formato}`;
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }

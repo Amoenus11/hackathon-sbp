@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Syntropy · Plataforma interactiva de rankings de crédito y análisis bancario (Hackathon SBP 2026)",
-  "engines": { "node": ">=20.19" },
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "configurar": "node servidor/configurar.js",
     "build": "vite build",
@@ -19,6 +21,7 @@
     "@xyflow/react": "13.0.3",
     "echarts": "6.1.0",
     "echarts-for-react": "3.1.0",
+    "exceljs": "4.4.0",
     "express": "5.3.0",
     "multer": "2.5.0",
     "react": "19.3.1",

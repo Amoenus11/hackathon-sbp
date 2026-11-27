@@ -6,6 +6,8 @@ Equipo **Syntropy** — *Del caos de datos al orden de las decisiones.*
 > ⚠️ **Datos 100 % ficticios** (paquete AT03 sintético de la SBP). No representan al sistema bancario panameño
 > ni constituyen opinión formal de la Superintendencia de Bancos de Panamá.
 
+**En vivo: https://syntropy.com.pa** (Público sin usuario; Analista y Administrador con usuario).
+
 Hoy las estadísticas se consultan en Excel y PDF: comparar bancos y meses es lento y poco transparente.
 El Observatorio transforma los registros AT03 en **rankings de crédito por banco y actividad económica**:
 reproducibles, verificables al centavo, comparables entre períodos y explicados en lenguaje claro para cada
@@ -30,7 +32,7 @@ Abre **http://localhost:3000**. Al arrancar, el sistema calcula los 3 períodos 
 | Comando | Qué hace |
 | --- | --- |
 | `npm start` | Compila la web (React) y arranca el servidor (Node) en el puerto 3000 |
-| `npm test` | Ejecuta las 14 pruebas automáticas (motor y API) |
+| `npm test` | Ejecuta las 17 pruebas automáticas (motor, API y sesiones) |
 | `npm run exportar` | Recalcula todo desde `datos/reto/` y escribe las 5 exportaciones en `exportaciones/` |
 | `npm run configurar -- agregar <usuario> <analista\|administrador>` | Agrega un usuario |
 | `npm run dev:api` + `npm run dev:web` | Modo desarrollo (recarga en caliente; web en :5173) |
@@ -130,6 +132,12 @@ artículo 2, numerales 13 y 14: una facilidad es **morosa** con importes impagos
 los **sobregiros** (SB21 `04` y `05`) pasan a vencidos al superar **30 días**. Se aplica a todo el saldo de la facilidad usando `Dias_Mora`.
 (Las «operaciones de un solo pago al vencimiento», que la norma trata como los sobregiros, no se identifican con los campos del AT03 y no se aplican.)
 Son indicadores adicionales: no intervienen en los rankings.
+### Anatomía del cambio (innovación)
+Como un mismo `Numero_Prestamo` aparece mientras está vigente, explicamos **por qué** cambió el saldo de cada
+banco en cada actividad, exacto al centavo: `saldo anterior + préstamos nuevos − préstamos que terminaron +
+variación de los que siguen = saldo actual` (`anatomiaDelCambio` en `motor/motor.js`; prueba en `pruebas/`).
+Se ve como un gráfico de cascada al tocar un banco en *Rankings*, alimenta las explicaciones automáticas y se
+exporta en `anatomia.csv`.
 
 ### Automatizaciones (lámina 8): las 6
 1. Al cargar un período se calculan calidad, rankings, desglose y reconciliaciones automáticamente.
@@ -154,7 +162,7 @@ Desde la app (*Rankings*, *Calidad*, *Comparar*, *Reportes*) o con `npm run expo
 
 ## 6. Pruebas y verificación (evidencia)
 
-- **`npm test`** — 28 pruebas (`pruebas/`; `revision.test.js` cubre los casos límite: fecha imposible, un mes en dos archivos, banco desconocido con R3 que falla, morosidad, saldo 0 en comparaciones, rechazos en la API): cascada con casos hechos a mano (una fila extranjera y negativa cuenta
+- **`npm test`** — 36 pruebas (`pruebas/`; `revision.test.js` cubre los casos límite: fecha imposible, un mes en dos archivos, banco desconocido con R3 que falla, morosidad, saldo 0 en comparaciones, rechazos en la API): cascada con casos hechos a mano (una fila extranjera y negativa cuenta
   solo en E2; `l` minúscula no es `L`; el duplicado se decide por orden de archivo), regla SB21, desempate,
   denominador único, ponderaciones ≈ 100, reconciliaciones, archivos inválidos, perfiles y permisos, carga de un
   período nuevo y comparación automática, columnas exactas de las exportaciones.
@@ -167,12 +175,26 @@ Desde la app (*Rankings*, *Calidad*, *Comparar*, *Reportes*) o con `npm run expo
   python3 verificacion/comparar.py exportaciones /tmp/referencia     # → IDÉNTICOS
   ```
 
-## 7. Asistente IA (innovación, opcional)
+## 7. Asistente IA (innovación)
 
-La IA **explica**; **nunca calcula** los rankings (Sección 9). El servidor le entrega resultados ya calculados
-(rankings, movimientos y calidad del período) y Claude responde preguntas en lenguaje claro.
-Usa **Claude Code instalado en el equipo** con la sesión de quien ejecuta la app: no hay claves en el código.
-Si no está disponible, el resto de la plataforma (incluidas las explicaciones automáticas) funciona igual.
+La IA **explica**; **nunca calcula** los rankings (Sección 9). Recibe resultados ya calculados (rankings,
+movimientos y calidad del período) y responde en lenguaje claro, citando las cifras oficiales.
+
+- **Local:** usa **Claude Code instalado en el equipo** con la sesión de quien ejecuta la app (sin claves en el código).
+- **En internet (syntropy.com.pa):** un Claude Code **aislado y de solo lectura** (`nube/asistente/explicador.py`):
+  solo puede leer las exportaciones oficiales y el paquete del reto (herramientas Read, Glob y Grep: no ejecuta
+  órdenes ni escribe), no tiene internet ni credencial; un intermediario (`nube/salida/`) añade la credencial y
+  solo deja pasar la API de Anthropic.
+
+Si no está disponible, todo lo demás (incluidas las explicaciones automáticas) funciona igual.
+
+## 7.1 Pensado para presentar
+- **Presentación guiada** (botón «▶ Presentación guiada» en la cabecera): recorre la app en el orden del pitch,
+  con una frase por pantalla; se avanza con las flechas del teclado.
+- **Metodología en 5 pasos** con las cifras en vivo: leer → excluir (E1–E4) → clasificar (CINU + SB21) → sumar al
+  centavo → ordenar y comparar; y un diagrama simple de cómo se relacionan los archivos.
+- **Equipo Syntropy**: quiénes somos, misión, valores, el pitch en 5 minutos y las preguntas que los tres sabemos
+  responder.
 
 ## 8. Decisiones técnicas
 
@@ -195,7 +217,8 @@ pruebas/        pruebas automáticas (node --test)
 verificacion/   implementación de referencia en Python + comparador
 datos/reto/     paquete oficial del reto (AT03 sintético y catálogos)
 docs/           indicaciones del reto, presentación y contrato de la API
-nube/           (opcional) despliegue en internet; no es parte del prototipo local
+nube/           versión en internet: asistente de solo lectura (Claude Code aislado) e intermediario
+Dockerfile      imagen de la versión en internet (no se publica si una prueba falla)
 ```
 
 ---

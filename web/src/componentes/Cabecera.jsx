@@ -1,3 +1,4 @@
+import { useState } from 'react';
 // Cabecera: marca, selector de período (global) y perfil con inicio/cierre de sesión.
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
@@ -23,7 +24,7 @@ export function Marca() {
 }
 
 export default function Cabecera({ alAbrirMenu, menuAbierto }) {
-  const { meta, fecha, setFecha, sesion, setSesion, abrirSesion } = useApp();
+  const { meta, fecha, setFecha, sesion, setSesion, abrirSesion, paso, setPaso } = useApp();
   const navegar = useNavigate();
   const ubicacion = useLocation();
 
@@ -53,14 +54,19 @@ export default function Cabecera({ alAbrirMenu, menuAbierto }) {
         </span>
       </Link>
 
+      <EstadoDemo />
       <div className="cabecera-derecha">
+        <button type="button" className="boton-cabecera boton-guia boton-solo-icono" onClick={() => setPaso(paso === null ? 0 : null)} aria-pressed={paso !== null}
+          aria-label={paso === null ? 'Iniciar la presentación guiada' : 'Salir de la presentación guiada'} title="Presentación guiada">
+          <span aria-hidden="true">{paso === null ? '▶' : '■'}</span>
+        </button>
         {meta?.periodos?.length > 0 && (
           <label className="selector-periodo">
             <span>Período</span>
-            <select value={fecha || ''} onChange={(e) => setFecha(e.target.value)} aria-label="Período de los datos">
+            <select title={fecha ? `Corte ${fechaCorte(fecha)}` : ''} value={fecha || ''} onChange={(e) => setFecha(e.target.value)} aria-label="Período de los datos">
               {meta.periodos.map((p) => (
                 <option key={p.fecha} value={p.fecha}>
-                  {p.etiqueta} · corte {fechaCorte(p.fecha)}
+                  {p.etiqueta}
                 </option>
               ))}
             </select>
@@ -80,5 +86,31 @@ export default function Cabecera({ alAbrirMenu, menuAbierto }) {
         </div>
       </div>
     </header>
+  );
+}
+
+// Estado «datos ficticios» (lámina 9): pequeño pero siempre visible; al pasar el ratón o tocarlo explica.
+function EstadoDemo() {
+  const { meta, fecha } = useApp();
+  const [abierto, setAbierto] = useState(false);
+  const periodo = meta?.periodos?.find((p) => p.fecha === fecha);
+  return (
+    <div className="estado-demo" onMouseEnter={() => setAbierto(true)} onMouseLeave={() => setAbierto(false)}>
+      <button type="button" className="estado-demo-boton" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}>
+        <span className="estado-demo-punto" aria-hidden="true" />Datos ficticios
+        {periodo && <span className="estado-demo-periodo"> · {periodo.corta}</span>}
+      </button>
+      {abierto && (
+        <div className="estado-demo-globo" role="note">
+          <strong>Modo demostración</strong>
+          <p>{meta?.aviso || 'Datos 100 % ficticios con fines de demostración.'}</p>
+          <dl>
+            <dt>Fuente</dt><dd>{meta?.fuente || 'Paquete Hackathon SBP 2026 · AT03 sintético'}</dd>
+            <dt>Período</dt><dd>{periodo ? `${periodo.etiqueta} (corte ${periodo.fecha.slice(6)}/${periodo.fecha.slice(4, 6)}/${periodo.fecha.slice(0, 4)})` : '—'}</dd>
+          </dl>
+          <p className="estado-demo-nota">Uso informativo; no constituye opinión formal de la SBP.</p>
+        </div>
+      )}
+    </div>
   );
 }

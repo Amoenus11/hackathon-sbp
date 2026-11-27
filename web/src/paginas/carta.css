@@ -1,0 +1,40 @@
+/* Carta al banco */
+.car { max-width: 920px; margin: 0 auto; }
+.car-cabecera { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.car-cabecera h1 { font-size: clamp(1.8rem, 3.2vw, 2.4rem); letter-spacing: -0.03em; }
+.car-subtitulo { color: var(--texto-3); font-size: 1.05rem; margin: .4rem 0 0; }
+.car-selector { display: grid; gap: .3rem; font-size: .82rem; font-weight: 700; color: var(--texto-2); }
+.car-selector select { padding: .55rem .8rem; border: 1px solid var(--borde-fuerte); border-radius: 999px; background: #fff; font-size: .95rem; }
+.car-acciones { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .9rem; }
+
+.car-hoja { background: #fff; border: 1px solid #edf0f4; border-radius: 18px; box-shadow: 0 8px 24px rgba(15, 23, 42, .06); padding: 2rem 2.2rem; }
+.car-hoja-cabecera { display: grid; gap: .2rem; padding-bottom: .9rem; margin-bottom: 1.2rem; border-bottom: 3px solid; border-image: linear-gradient(120deg, #0e7c86, #5b4bdb) 1; }
+.car-hoja-cabecera small { color: var(--texto-3); }
+.car-saludo { font-weight: 700; }
+.car-hoja p { line-height: 1.65; color: var(--texto-2); }
+.car-info { background: #f1f5f9; border-radius: 10px; padding: .6rem .8rem; font-size: .92rem; }
+.car-conteos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin: 1.2rem 0 1.4rem; }
+.car-conteo { border: 1px solid #edf0f4; border-radius: 14px; padding: .7rem .8rem; display: grid; gap: .1rem; }
+.car-conteo span { font-weight: 800; font-size: .78rem; color: #b45309; letter-spacing: .06em; }
+.car-conteo strong { font-size: 1.6rem; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.car-conteo small { color: var(--texto-3); font-size: .8rem; }
+.car-conteo-info span { color: var(--texto-3); }
+.car-hoja h2 { font-size: 1rem; margin: .4rem 0 .6rem; }
+.car-tabla-envoltura { overflow-x: auto; }
+.car-tabla { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.car-tabla th, .car-tabla td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #eef1f5; }
+.car-tabla th { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--texto-3); }
+.car-tabla .num { text-align: right; font-variant-numeric: tabular-nums; }
+.car-detalles { margin-top: 1rem; }
+.car-detalles summary { cursor: pointer; font-weight: 600; color: var(--acento-oscuro, #0a6870); margin-bottom: .5rem; }
+.car-vacio { color: var(--texto-3); }
+.car-firma { margin-top: 1.6rem; }
+@media (max-width: 700px) { .car-conteos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .car-hoja { padding: 1.2rem; } }
+
+@media print {
+  .cabecera, .menu, .pie, .car-cabecera, .car-acciones, .boton-ia-flotante, .recorrido, .estado-demo { display: none !important; }
+  .cuerpo { display: block !important; }
+  .contenido { padding: 0 !important; }
+  .car-hoja { border: 0; box-shadow: none; padding: 0; }
+  .car-detalles { display: block; }
+}

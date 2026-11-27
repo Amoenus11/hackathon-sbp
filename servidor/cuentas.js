@@ -44,9 +44,6 @@ export function crearCuentas(carpetaLocal, definicion, urlPublica) {
       enlaces.push(`${usuario.padEnd(14)} ${nuevoEnlace(c)}`);
       cuentas.push(c);
       cambios = true;
-    } else if (existente.perfil !== perfil) {
-      existente.perfil = perfil;
-      cambios = true;
     }
   }
   // importar.json (una sola vez): contraseñas que el equipo ya había creado, solo como huella.
@@ -69,6 +66,11 @@ export function crearCuentas(carpetaLocal, definicion, urlPublica) {
   if (enlaces.length) console.log(`\n  Enlaces de un solo uso (48 h):\n  ${enlaces.join('\n  ')}\n`);
 
   return {
+    fijarPerfil(usuario, perfil) {
+      const c = cuentas.find((x) => x.usuario === usuario);
+      if (!c) return false;
+      c.perfil = perfil; guardar(); return true;
+    },
     lista: () => cuentas.map(({ usuario, perfil, huella: h }) => ({ usuario, perfil, huella: h })),
     /** Devuelve { usuario, clave } y borra el enlace: solo funciona una vez. */
     revelar(token) {

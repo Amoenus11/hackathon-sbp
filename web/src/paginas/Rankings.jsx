@@ -100,6 +100,7 @@ export function RankingDelPeriodo({ fecha, ranking, banco, alElegir }) {
           { clave: 'posicion', titulo: 'Posición', numerica: true, render: (f) => <span className="posicion">{f.posicion}</span> },
           { clave: 'banco', titulo: 'Banco', render: (f) => <NombreBanco codigo={f.codigo_banco} nombre={f.banco} /> },
           { clave: 'saldo_actividad', titulo: 'Saldo de la actividad', numerica: true, valor: (f) => num(f.saldo_actividad), render: (f) => monto(f.saldo_actividad) },
+          { clave: 'total_cartera', titulo: 'Cartera total del banco', numerica: true, valor: (f) => num(f.total_cartera), render: (f) => monto(f.total_cartera) },
           { clave: 'ponderacion_pct', titulo: 'Ponderación', numerica: true, valor: (f) => num(f.ponderacion_pct), render: (f) => pct(f.ponderacion_pct) },
           { clave: 'participacion_pct', titulo: 'Participación', numerica: true, valor: (f) => num(f.participacion_pct), render: (f) => pct(f.participacion_pct, 2) },
           { clave: 'operaciones', titulo: 'Operaciones', numerica: true, render: (f) => entero(f.operaciones) },
@@ -201,6 +202,7 @@ export function DesgloseBanco({ fecha, ranking, fila }) {
       <p className="formula">
         Ponderación = {monto(fila.saldo_actividad)} ÷ {monto(fila.total_cartera)} × 100 = <strong>{pct(fila.ponderacion_pct)}</strong>
       </p>
+      {fila.posicion_anterior != null && <AnatomiaBanco fecha={fecha} ranking={ranking} fila={fila} />}
       <Carga estado={estado} filas={4}>
         {(d) => {
           const filas = d.filas.filter((f) => f.codigo_banco === fila.codigo_banco);
@@ -279,6 +281,70 @@ export function Evolucion({ ranking, banco }) {
               />
             </Tarjeta>
           </div>
+        );
+      }}
+    </Carga>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Anatomía del cambio: POR QUÉ cambió el saldo del banco entre el mes anterior y este.
+// saldo anterior + préstamos nuevos − préstamos que terminaron + variación de los que siguen = saldo actual
+const enM = (texto) => Math.round((num(texto) / 1e6) * 100) / 100;
+
+function opcionCascada(a, etiquetaAntes, etiquetaAhora) {
+  const A = num(a.saldo_anterior); const N = num(a.nuevos); const T = num(a.terminados); const V = num(a.variacion); const B = num(a.saldo_actual);
+  const m = (x) => Math.round((x / 1e6) * 100) / 100;
+  const pasos = [
+    { nombre: `Saldo ${etiquetaAntes}`, base: 0, valor: A, color: '#0e7c86', texto: monto(a.saldo_anterior) },
+    { nombre: `+ ${entero(a.n_nuevos)} nuevos`, base: A, valor: N, color: '#15803d', texto: `+${monto(a.nuevos)}` },
+    { nombre: `− ${entero(a.n_terminados)} terminaron`, base: A + N - T, valor: T, color: '#dc2626', texto: `−${monto(a.terminados)}` },
+    { nombre: `${entero(a.n_siguen)} siguen`, base: V < 0 ? A + N - T + V : A + N - T, valor: Math.abs(V), color: V < 0 ? '#f59e0b' : '#15803d', texto: `${V < 0 ? '−' : '+'}${monto(String(Math.abs(V)))}` },
+    { nombre: `Saldo ${etiquetaAhora}`, base: 0, valor: B, color: '#5b4bdb', texto: monto(a.saldo_actual) },
+  ];
+  const minimo = Math.min(A, B, A + N - T + Math.min(0, V)) * 0.9;
+  return {
+    grid: { left: 8, right: 8, top: 26, bottom: 8, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p) => { const d = pasos[p[0].dataIndex]; return `${d.nombre}<br/><b>${d.texto}</b>`; } },
+    xAxis: { type: 'category', data: pasos.map((d) => d.nombre), axisLabel: { interval: 0, fontSize: 11 } },
+    yAxis: { type: 'value', min: m(minimo), axisLabel: { formatter: (v) => `${v} M` } },
+    series: [
+      { type: 'bar', stack: 'c', silent: true, itemStyle: { color: 'transparent' }, data: pasos.map((d) => m(d.base)) },
+      {
+        type: 'bar', stack: 'c', barWidth: '56%',
+        data: pasos.map((d) => ({ value: m(d.valor), itemStyle: { color: d.color, borderRadius: 6 } })),
+        label: { show: true, position: 'top', fontSize: 11, color: '#334155', formatter: (p) => (p.dataIndex === 0 || p.dataIndex === 4 ? `${p.value} M` : pasos[p.dataIndex].texto.startsWith('−') ? `−${p.value} M` : `+${p.value} M`) },
+      },
+    ],
+  };
+}
+
+export function AnatomiaBanco({ fecha, ranking, fila }) {
+  const { meta } = useApp();
+  const estado = useDatos(() => api.anatomia(fecha, ranking, fila.codigo_banco), [fecha, ranking, fila.codigo_banco]);
+  return (
+    <Carga estado={estado} filas={3}>
+      {(d) => {
+        const a = d.filas[0];
+        if (!a) return null;
+        const antes = etiquetaCorta(d.desde, meta);
+        const ahora = etiquetaCorta(d.hasta, meta);
+        const sube = num(a.saldo_actual) >= num(a.saldo_anterior);
+        return (
+          <section className="anatomia">
+            <h3 className="titulo-seccion">¿Por qué cambió? <span className="anatomia-etiqueta">Anatomía del cambio · {antes} → {ahora}</span></h3>
+            <p className="anatomia-frase">
+              Su saldo {sube ? 'creció' : 'bajó'} de <strong>{enM(a.saldo_anterior)} M</strong> a <strong>{enM(a.saldo_actual)} M</strong>
+              {a.var_saldo_pct != null && <> ({variacion(a.var_saldo_pct)})</>}: otorgó <strong>{entero(a.n_nuevos)} préstamos nuevos</strong> (+{enM(a.nuevos)} M),
+              {' '}<strong>{entero(a.n_terminados)}</strong> terminaron o salieron (−{enM(a.terminados)} M) y los {entero(a.n_siguen)} que siguen
+              {' '}{num(a.variacion) < 0 ? 'se amortizaron' : 'variaron'} {enM(a.variacion)} M.
+            </p>
+            <Grafico opcion={opcionCascada(a, antes, ahora)} alto={240} etiqueta="Cascada del cambio de saldo entre los dos meses" />
+            <p className="nota anatomia-nota">
+              {a.cuadra ? '✓ Cuadra al centavo: ' : ''}saldo anterior + nuevos − terminados + variación de los que siguen = saldo actual.
+              {' '}Un préstamo «sigue» si tiene el mismo número, banco y actividad en ambos meses.
+            </p>
+          </section>
         );
       }}
     </Carga>

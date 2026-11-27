@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { leerCatalogos, procesarCarpeta } from '../motor/cargar.js';
-import { procesarArchivo, compararPeriodos, ORDEN_RANKINGS, ErrorDatos } from '../motor/motor.js';
+import { procesarArchivo, compararPeriodos, anatomiaDelCambio, ORDEN_RANKINGS, ErrorDatos } from '../motor/motor.js';
 import { aCentavos, aTexto, porcentaje } from '../motor/dinero.js';
 import { escribirCsv } from '../motor/csv.js';
 
@@ -116,4 +116,19 @@ test('automatización: un período nuevo se calcula y compara sin tocar el códi
   // La regla es configurable: con un umbral imposible no hay movimientos por saldo
   const estricta = compararPeriodos(jul, ago, { mov_min_posiciones: 12, mov_cambio_lider: false, mov_var_saldo_pct: '1000' });
   assert.equal(estricta.filas.filter((f) => f.significativo).length, 0);
+});
+
+test('anatomía del cambio: saldo anterior + nuevos − terminados + variación = saldo actual, al centavo', () => {
+  for (let k = 1; k < periodos.length; k++) {
+    const [antes, ahora] = [periodos[k - 1], periodos[k]];
+    const anatomia = anatomiaDelCambio(antes, ahora);
+    for (const macro of ORDEN_RANKINGS) {
+      for (const b of catalogos.bancos) {
+        const a = anatomia(macro, b.codigo);
+        const saldoAntes = antes.rankings[macro].find((f) => f.codigo_banco === b.codigo).saldo_actividad;
+        const saldoAhora = ahora.rankings[macro].find((f) => f.codigo_banco === b.codigo).saldo_actividad;
+        assert.equal(saldoAntes + a.nuevos - a.terminados + a.variacion, saldoAhora, `${ahora.fecha} ${macro} ${b.codigo}`);
+      }
+    }
+  }
 });

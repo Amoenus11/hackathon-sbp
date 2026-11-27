@@ -184,16 +184,16 @@ test('API: la calidad de datos exige analista, como dice la documentación', asy
   assert.equal((await pedir('/api/calidad', { cookie: ana })).status, 200);
 });
 
-test('API: una carga rechazada devuelve 400 claro y queda en el registro; Latin-1 y fechas imposibles se rechazan', async () => {
+test('API: una carga rechazada devuelve 400 claro y queda en el registro; un archivo Latin-1 se convierte y se acepta', async () => {
   const adm = await entrar('admin', 'clave-de-prueba-2');
   const mes13 = await subir(adm, 'mes13.csv', at03([{ Fecha: '20261331' }]));
   assert.equal(mes13.status, 400);
   assert.match((await mes13.json()).error, /mes13\.csv.*20261331/);
-  const latin1 = await subir(adm, 'latin1.csv', Buffer.from(at03([{ Nombre_Cliente: 'Peña' }]), 'latin1'));
-  assert.equal(latin1.status, 400);
-  assert.match((await latin1.json()).error, /UTF-8/);
+  // La conversión de codificación es de la carga por archivo (main): un Latin-1 válido se acepta y se anota la conversión.
+  const latin1 = await subir(adm, 'latin1.csv', Buffer.from(at03([{ Nombre_Cliente: 'Peña' }], '20261031'), 'latin1'));
+  assert.equal(latin1.status, 200);
   const registro = await (await pedir('/api/registro', { cookie: adm })).json();
-  assert.ok(registro.filter((x) => x.accion === 'carga_rechazada').length >= 2);
+  assert.ok(registro.filter((x) => x.accion === 'carga_fallida').length >= 1);
 });
 
 test('API: reemplazar un mes con un archivo parcial avisa cuántas filas se perdieron', async () => {

@@ -1,11 +1,16 @@
 // Estructura general: cabecera, franja de «datos ficticios», menú lateral según el perfil,
 // contenido de cada página y pie. Cada ruta verifica el perfil antes de mostrarse.
 import { useEffect, useState } from 'react';
-import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
+import Recorrido from './componentes/Recorrido.jsx';
+import ChatIA from './componentes/ChatIA.jsx';
+import Bienvenida from './producto/Bienvenida.jsx';
+import DosPasos from './producto/DosPasos.jsx';
+import PrimerCorte from './producto/PrimerCorte.jsx';
+import Saludo from './producto/Saludo.jsx';
 import { useApp } from './contexto.jsx';
 import { SECCIONES, puede } from './permisos.js';
 import Cabecera from './componentes/Cabecera.jsx';
-import FranjaAviso from './componentes/FranjaAviso.jsx';
 import Menu from './componentes/Menu.jsx';
 import Pie from './componentes/Pie.jsx';
 import ModalSesion from './componentes/ModalSesion.jsx';
@@ -20,6 +25,10 @@ import Calidad from './paginas/Calidad.jsx';
 import Reportes from './paginas/Reportes.jsx';
 import Asistente from './paginas/Asistente.jsx';
 import Equipo from './paginas/Equipo.jsx';
+import Pitch from './paginas/Pitch.jsx';
+import Publicar from './paginas/Publicar.jsx';
+import Carta from './paginas/Carta.jsx';
+import Extraccion from './paginas/Extraccion.jsx';
 import CargarPeriodo from './paginas/admin/CargarPeriodo.jsx';
 import Parametros from './paginas/admin/Parametros.jsx';
 import Catalogos from './paginas/admin/Catalogos.jsx';
@@ -29,7 +38,7 @@ import NoEncontrada from './paginas/NoEncontrada.jsx';
 
 const PAGINAS = {
   panel: Panel, rankings: Rankings, metodologia: Metodologia, descargas: Descargas,
-  comparar: Comparar, calidad: Calidad, reportes: Reportes, asistente: Asistente, equipo: Equipo,
+  comparar: Comparar, calidad: Calidad, reportes: Reportes, asistente: Asistente, equipo: Equipo, publicar: Publicar, carta: Carta, extraccion: Extraccion,
   cargar: CargarPeriodo, parametros: Parametros, catalogos: Catalogos, perfiles: Perfiles, registro: Registro,
 };
 
@@ -39,6 +48,8 @@ const SIN_PERIODO_OK = ['metodologia', 'descargas', 'equipo', 'cargar', 'paramet
 function Protegida({ seccion }) {
   const { sesion, meta } = useApp();
   if (!puede(sesion.perfil, seccion.minimo)) return <SinPermiso seccion={seccion} />;
+  // Modo producto: sin cortes, toda pantalla de datos guía a cargar el primero
+  if (meta && meta.modo === 'producto' && meta.periodos.length === 0 && !SIN_PERIODO_OK.includes(seccion.clave)) return <PrimerCorte />;
   if (meta && meta.periodos.length === 0 && !SIN_PERIODO_OK.includes(seccion.clave)) {
     return (
       <EstadoVacio titulo="Aún no hay períodos cargados">
@@ -47,21 +58,27 @@ function Protegida({ seccion }) {
     );
   }
   const Pagina = PAGINAS[seccion.clave];
+  if (meta?.modo === 'producto' && seccion.clave === 'panel') return <><Saludo /><Pagina /></>;
   return <Pagina />;
 }
 
 export default function App() {
-  const { meta, errorMeta, recargarMeta, modalSesion } = useApp();
+  const { meta, errorMeta, recargarMeta, modalSesion, sesion } = useApp();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const ubicacion = useLocation();
 
   useEffect(() => { setMenuAbierto(false); window.scrollTo(0, 0); }, [ubicacion.pathname]);
 
+  // Modo producto (demo.syntropy.com.pa): primero la cuenta, luego los 2 pasos y después la app
+  if (meta?.modo === 'producto' && ubicacion.pathname !== '/pitch') {
+    if (sesion.perfil === 'publico') return <Bienvenida />;
+    if (sesion.configurar_dos_pasos) return <DosPasos />;
+  }
+
   return (
     <div className="app">
       <a className="saltar" href="#contenido">Saltar al contenido</a>
       <Cabecera alAbrirMenu={() => setMenuAbierto((v) => !v)} menuAbierto={menuAbierto} />
-      <FranjaAviso />
       <div className="cuerpo">
         <Menu abierto={menuAbierto} alCerrar={() => setMenuAbierto(false)} />
         <main id="contenido" className="contenido" tabIndex={-1}>
@@ -74,17 +91,15 @@ export default function App() {
               {SECCIONES.map((s) => (
                 <Route key={s.clave} path={s.ruta} element={<Protegida seccion={s} />} />
               ))}
+              <Route path="/pitch" element={<Pitch />} />
               <Route path="*" element={<NoEncontrada />} />
             </Routes>
           )}
         </main>
       </div>
       <Pie />
-      {ubicacion.pathname !== '/asistente' && (
-        <Link to="/asistente" className="boton-ia-flotante" aria-label="Abrir el asistente IA">
-          <span aria-hidden="true">✦</span> Pregúntale a la IA
-        </Link>
-      )}
+      <Recorrido />
+      <ChatIA />
       {modalSesion && <ModalSesion />}
     </div>
   );
