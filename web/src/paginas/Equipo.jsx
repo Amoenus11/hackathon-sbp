@@ -7,7 +7,7 @@ const numero = new Intl.NumberFormat('es-PA');
 const PERSONAS = [
   {
     iniciales: 'G',
-    foto: '/equipo/guillermo.webp',
+    foto: '/equipo/guillermo-2.webp',
     nombre: 'Guillermo Aparicio',
     rol: 'Dirección y producto',
     texto: 'Define la estrategia y las prioridades, decide en 2 minutos, dirige a Claude y cuida el reloj del equipo.',
@@ -15,7 +15,7 @@ const PERSONAS = [
   },
   {
     iniciales: 'N',
-    foto: '/equipo/nathalia.webp',
+    foto: '/equipo/nathalia-2.webp',
     nombre: 'Nathalia Asyn',
     rol: 'Datos y verificación',
     texto: 'Entiende el AT03 a fondo, verifica cada cifra (cascada E1–E4 y reconciliaciones) y prepara los datos que pedirá el jurado. Tiene su propio Claude Code en el servidor.',
