@@ -621,6 +621,9 @@ h2 { letter-spacing: -0.012em; }
   color: var(--texto-2); text-decoration: none; font-size: .88rem; font-weight: 600; border: 1px solid var(--borde); background: #fff; }
 .menu-github:hover { border-color: var(--acento); color: var(--acento-oscuro); }
 .menu-github + .menu-perfil { margin-top: 0; }
+.menu-pitch { margin-bottom: .4rem; background: var(--degradado); color: #fff; border-color: transparent; }
+.menu-pitch:hover { color: #fff; filter: brightness(1.08); }
+.menu-pitch + .menu-github { margin-top: 0; }
 .pie a { color: var(--acento-oscuro); font-weight: 600; }
 
 /* Presentación guiada: barra flotante abajo, estilo «vidrio» */

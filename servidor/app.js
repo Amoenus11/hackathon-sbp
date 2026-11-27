@@ -328,8 +328,21 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   app.get('/api/registro', permiso('registro'), (req, res) => res.json(estado.registro()));
 
   // --- Asistente IA (explica resultados ya calculados)
+  // Límite para el perfil Público: 8 preguntas cada 10 minutos por dirección IP (cuida la suscripción).
+  const preguntasPorIp = new Map();
+  const limiteIa = (req) => {
+    if (req.perfil !== 'publico') return false;
+    const ip = req.get('Cf-Connecting-Ip') || req.ip || '?';
+    const ahora = Date.now();
+    const recientes = (preguntasPorIp.get(ip) || []).filter((t) => ahora - t < 10 * 60 * 1000);
+    if (recientes.length >= 8) return true;
+    recientes.push(ahora);
+    preguntasPorIp.set(ip, recientes);
+    return false;
+  };
   app.post('/api/ia', permiso('asistente'), async (req, res, next) => {
     try {
+      if (limiteIa(req)) return res.status(429).json({ error: 'Llegaste al límite de preguntas del perfil Público (8 cada 10 minutos). Inicia sesión o intenta en unos minutos.' });
       const pregunta = String(req.body?.pregunta || '').trim().slice(0, 1500);
       if (!pregunta) throw new ErrorDatos('Escribe una pregunta.');
       const p = fechaDe({ query: { fecha: req.body?.fecha } });
