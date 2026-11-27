@@ -397,3 +397,24 @@
 .pt-paso:not(:last-child)::after { content: '→'; position: absolute; right: -.55rem; top: 50%; transform: translateY(-50%); color: #5b4bdb; font-weight: 700; }
 @keyframes pt-entra { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 @media (max-width: 900px) { .pt-pasos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pt-paso::after { display: none; } }
+
+/* --------------------------------------------------------------- 0. negro y nacimiento de la portada */
+.pt-raiz.pt-oscuro { background: #000; cursor: none; }
+.pt-oscuro .pt-volver, .pt-oscuro .pt-completa, .pt-oscuro .pt-progreso, .pt-oscuro .pt-contador, .pt-oscuro .pt-ayuda { opacity: 0; pointer-events: none; }
+.pt-oscuro .pt-diapo { animation: none; }
+/* La portada empieza de noche: estrellas que titilan, aparece el nombre, amanece y los puntos se ordenan */
+.pt-noche { position: absolute; inset: 0; background: #000; animation: pt-amanecer 1.4s ease 2.2s forwards; pointer-events: none; }
+@keyframes pt-amanecer { to { opacity: 0; } }
+.pt-diapo:has(.pt-noche) { animation: none; }
+.pt-caos { animation: pt-caos-atenuar 2s ease 2.4s both; }
+@keyframes pt-caos-atenuar { from { opacity: 1; } to { opacity: .16; } }
+.pt-punto { transform: translate(var(--dx), var(--dy)); opacity: 1; animation: pt-ordenar 3s cubic-bezier(.2, .7, .1, 1) forwards; animation-delay: calc(2.4s + var(--retraso)); }
+@keyframes pt-ordenar { from { transform: translate(var(--dx), var(--dy)); } to { transform: translate(0, 0); } }
+.pt-estrella { opacity: 0; animation: pt-titilar 1.6s ease-in-out var(--titilar) 2 alternate, pt-apagar .9s ease 2.4s forwards; }
+@keyframes pt-titilar { 0% { opacity: .15; } 50% { opacity: 1; } 100% { opacity: .5; } }
+@keyframes pt-apagar { from { opacity: .8; } to { opacity: 0; } }
+.pt-punto-color { opacity: 0; animation: pt-colorear 1s ease 2.6s forwards; }
+@keyframes pt-colorear { to { opacity: 1; } }
+.pt-noche ~ .pt-contenido .pt-marca { opacity: 0; animation: pt-nombre 1.6s cubic-bezier(.2, .7, .1, 1) 1.2s forwards; }
+@keyframes pt-nombre { from { opacity: 0; letter-spacing: .3em; filter: blur(12px) drop-shadow(0 0 40px #5b4bdb); } to { opacity: 1; letter-spacing: .04em; filter: none; } }
+.pt-noche ~ .pt-contenido .pt-lema, .pt-noche ~ .pt-contenido .pt-firma { opacity: 0; animation: pt-colorear 1s ease 3.2s forwards; }

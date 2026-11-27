@@ -90,20 +90,29 @@ function CaosOrden() {
           <stop offset="0" stopColor="#0e7c86" /><stop offset="1" stopColor="#5b4bdb" />
         </linearGradient>
       </defs>
-      {puntos.map((p) => (
-        <circle
-          key={`${p.x}-${p.y}`} className="pt-punto" cx={p.x} cy={p.y} r="6" fill="url(#pt-degradado-puntos)"
-          style={{ '--dx': `${p.dx}px`, '--dy': `${p.dy}px`, '--retraso': `${p.retraso}ms` }}
-        />
+      {puntos.map((p, i) => (
+        <g
+          key={`${p.x}-${p.y}`} className="pt-punto"
+          style={{ '--dx': `${p.dx}px`, '--dy': `${p.dy}px`, '--retraso': `${p.retraso}ms`, '--titilar': `${(i * 37) % 900}ms` }}
+        >
+          <circle className="pt-punto-color" cx={p.x} cy={p.y} r="6" fill="url(#pt-degradado-puntos)" />
+          <circle className="pt-estrella" cx={p.x} cy={p.y} r={1.5 + ((i * 7) % 5) * 0.6} fill="#fff" />
+        </g>
       ))}
     </svg>
   );
 }
 
 // ------------------------------------------------------------------ diapositivas
+// Diapositiva 0: pantalla en negro antes de empezar (al avanzar, la portada nace de un cielo de estrellas)
+function Negro() {
+  return null;
+}
+
 function Portada() {
   return (
     <>
+      <div className="pt-noche" aria-hidden="true" />
       <CaosOrden />
       <div className="pt-contenido pt-centro">
         <h1 className="pt-marca">SYNTROPY</h1>
@@ -478,6 +487,7 @@ function Cierre() {
 
 // «quien» = quién del equipo la presenta (guion de Guillermo → Nathalia → Aníbal)
 const DIAPOSITIVAS = [
+  { titulo: 'Inicio', Componente: Negro, negro: true },
   { titulo: 'Portada', Componente: Portada, quien: 'Guillermo' },
   { titulo: 'La pregunta de fondo', Componente: Apertura, quien: 'Guillermo' },
   { titulo: 'El problema', Componente: Problema, quien: 'Guillermo' },
@@ -507,7 +517,7 @@ export default function Pitch() {
   // Se puede abrir directo en una diapositiva: /pitch#4 (y la dirección sigue a la diapositiva actual)
   const [indice, setIndice] = useState(() => {
     const n = parseInt(window.location.hash.slice(1), 10);
-    return Number.isInteger(n) && n >= 1 && n <= DIAPOSITIVAS.length ? n - 1 : 0;
+    return Number.isInteger(n) && n >= 0 && n < DIAPOSITIVAS.length ? n : 0;
   });
   const [direccion, setDireccion] = useState(1);
   const total = DIAPOSITIVAS.length;
@@ -526,7 +536,7 @@ export default function Pitch() {
     else (raiz.current || document.documentElement).requestFullscreen?.().catch(() => {});
   }, []);
 
-  useEffect(() => { window.history.replaceState(null, '', `#${indice + 1}`); }, [indice]);
+  useEffect(() => { window.history.replaceState(null, '', `#${indice}`); }, [indice]);
 
   useEffect(() => {
     const alTeclear = (e) => {
@@ -541,11 +551,11 @@ export default function Pitch() {
     return () => window.removeEventListener('keydown', alTeclear);
   }, [siguiente, anterior, pantallaCompleta, ir, total]);
 
-  const { Componente, titulo, quien } = DIAPOSITIVAS[indice];
+  const { Componente, titulo, quien, negro } = DIAPOSITIVAS[indice];
   return (
     <div
       ref={raiz}
-      className="pt-raiz"
+      className={`pt-raiz${negro ? ' pt-oscuro' : ''}`}
       role="region"
       aria-roledescription="presentación"
       aria-label="Pitch de Syntropy"
@@ -565,21 +575,21 @@ export default function Pitch() {
         key={indice}
         className="pt-diapo"
         style={{ '--pt-desde': `${direccion * 28}px` }}
-        aria-label={`Diapositiva ${indice + 1} de ${total}: ${titulo}`}
+        aria-label={`Diapositiva ${indice} de ${total - 1}: ${titulo}`}
         aria-live="polite"
       >
         <Componente cifras={cifras} irALaApp={() => { navegar('/'); if (setPaso) setPaso(0); }} />
       </section>
 
       <nav className="pt-progreso" aria-label="Diapositivas">
-        {DIAPOSITIVAS.map((d, i) => (
+        {DIAPOSITIVAS.map((d, i) => (d.negro ? null : (
           <button
             key={d.titulo} type="button" aria-label={`Ir a ${d.titulo}`} aria-current={i === indice ? 'step' : undefined}
             className={i === indice ? 'pt-activo' : ''} onClick={() => ir(i)}
           />
-        ))}
+        )))}
       </nav>
-      <span className="pt-contador" aria-hidden="true">{quien && <span className="pt-quien">Presenta: {quien} · </span>}{indice + 1} / {total}</span>
+      <span className="pt-contador" aria-hidden="true">{quien && <span className="pt-quien">Presenta: {quien} · </span>}{indice} / {total - 1}</span>
       <span className="pt-ayuda" aria-hidden="true">← → para avanzar · F pantalla completa</span>
     </div>
   );
