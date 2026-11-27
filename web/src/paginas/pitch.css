@@ -418,3 +418,5 @@
 .pt-noche ~ .pt-contenido .pt-marca { opacity: 0; animation: pt-nombre 1.6s cubic-bezier(.2, .7, .1, 1) 1.2s forwards; }
 @keyframes pt-nombre { from { opacity: 0; letter-spacing: .3em; filter: blur(12px) drop-shadow(0 0 40px #5b4bdb); } to { opacity: 1; letter-spacing: .04em; filter: none; } }
 .pt-noche ~ .pt-contenido .pt-lema, .pt-noche ~ .pt-contenido .pt-firma { opacity: 0; animation: pt-colorear 1s ease 3.2s forwards; }
+/* Durante la noche de la portada, los controles aparecen después del amanecer */
+.pt-raiz:has(.pt-noche) :is(.pt-volver, .pt-completa, .pt-progreso, .pt-contador, .pt-ayuda) { opacity: 0; animation: pt-colorear .8s ease 3.6s forwards; }
