@@ -83,3 +83,6 @@
   .ex-lista-dos, .ex-niveles, .ex-botones { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .ex-cargando { animation: none; } }
+
+/* Que el botón flotante de la IA nunca tape los botones de descarga */
+.ex-vista { padding-bottom: 4.6rem !important; }
