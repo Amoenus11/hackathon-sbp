@@ -32,7 +32,7 @@ const PERSONAS = [
 ];
 
 const VALORES = [
-  { simbolo: '0.00', titulo: 'Exactitud al centavo', texto: 'Si no cuadra, no se publica.' },
+  { simbolo: '0.00', titulo: 'Exactitud al centavo', texto: 'Si algo no cuadra, se avisa y queda registrado.' },
   { simbolo: '⌕', titulo: 'Transparencia', texto: 'Cada número con su fuente y su regla.' },
   { simbolo: '◐', titulo: 'Claridad para todos', texto: 'Público, analista y administrador entienden lo que ven.' },
   { simbolo: '2′', titulo: 'Decidir rápido', texto: 'Dos minutos para debatir; Dirección cierra.' },

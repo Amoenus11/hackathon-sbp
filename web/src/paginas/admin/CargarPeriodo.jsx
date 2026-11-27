@@ -131,6 +131,12 @@ export default function CargarPeriodo() {
               </li>
             ))}
           </ul>
+          {resultado.avisos?.length > 0 && (
+            <div className="aviso-bloqueo" role="alert">
+              <strong>Revisa esto antes de seguir:</strong>
+              <ul>{resultado.avisos.map((t, i) => <li key={i}>{t}</li>)}</ul>
+            </div>
+          )}
           <p><strong>{entero(resultado.movimientos_significativos)}</strong> movimientos significativos frente al período anterior.</p>
           {resultado.explicaciones?.length > 0 && (
             <ul className="destacados">

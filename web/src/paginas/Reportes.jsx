@@ -38,9 +38,12 @@ export default function Reportes() {
     setError(null);
     try {
       const quiere = (s) => secciones.includes(s);
+      // UNA sola base de comparación para todo el reporte: la elegida, o ninguna. Así el resumen, la columna
+      // «Cambio» de los rankings y los movimientos dicen siempre lo mismo.
+      const base = comparar && comparar < periodo ? comparar : 'ninguna';
       const [panel, tablas, desgloses, movs, calidad] = await Promise.all([
-        quiere('resumen') ? api.panel(periodo) : null,
-        quiere('rankings') ? Promise.all(rankings.map((r) => api.rankings(periodo, r))) : null,
+        quiere('resumen') ? api.panel(periodo, base) : null,
+        quiere('rankings') ? Promise.all(rankings.map((r) => api.rankings(periodo, r, base))) : null,
         quiere('desglose') ? Promise.all(rankings.map((r) => api.desglose(periodo, r))) : null,
         quiere('movimientos') && comparar && comparar < periodo ? api.movimientos({ desde: comparar, hasta: periodo }) : null,
         quiere('calidad') ? api.calidad(periodo) : null,
@@ -159,7 +162,9 @@ export function HojaReporte({ r, meta, sesion }) {
           <div className="hoja-kpis">
             <div><span>Cartera local válida</span><strong className="num">{monto(r.panel.kpis.cartera_total)}</strong></div>
             <div><span>Operaciones válidas</span><strong className="num">{entero(r.panel.kpis.operaciones)}</strong></div>
-            <div><span>Variación vs mes anterior</span><strong className="num">{variacion(r.panel.kpis.var_cartera_pct)}</strong></div>
+            {r.panel.fecha_anterior && (
+              <div><span>Variación vs {etiquetaPeriodo(r.panel.fecha_anterior, meta)}</span><strong className="num">{variacion(r.panel.kpis.var_cartera_pct)}</strong></div>
+            )}
             <div><span>Filas excluidas</span><strong className="num">{entero(r.panel.kpis.excluidas)}</strong></div>
           </div>
           <div className="hoja-dos">

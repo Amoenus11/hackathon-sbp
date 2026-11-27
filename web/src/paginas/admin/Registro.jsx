@@ -17,6 +17,7 @@ const ACCIONES = {
   exportar: 'Descargó un CSV',
   inicio: 'Arranque del sistema',
   actualizar_periodo: 'Actualizó un período',
+  carga_fallida: 'Intento de carga fallido',
   consulta_ia: 'Consultó al asistente IA',
   revelar_contrasena: 'Recibió su contraseña (enlace de un solo uso)',
 };

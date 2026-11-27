@@ -44,6 +44,7 @@ export const EXPORTACIONES = [
   { tipo: 'desglose', titulo: 'Desglose por subactividad', detalle: 'Saldo de cada banco por subactividad, con la reclasificación SB21 de Tarjeta.', minimo: 'publico' },
   { tipo: 'calidad', titulo: 'Reporte de calidad (E1–E4)', detalle: 'Conteos en cascada y universo local válido de cada período.', minimo: 'analista' },
   { tipo: 'movimientos', titulo: 'Movimientos de posición', detalle: 'Cambios de posición y de saldo entre períodos consecutivos, con la regla de significancia.', minimo: 'analista' },
+  { tipo: 'alertas', titulo: 'Alertas de calidad', detalle: 'Bancos o facilidades fuera de catálogo, incoherencias SB21 y reconciliaciones que no cuadran (no excluyen filas).', minimo: 'analista' },
   { tipo: 'excluidas', titulo: 'Filas excluidas', detalle: 'Lista trazable de cada fila excluida y el filtro que la excluyó.', minimo: 'analista' },
 ];
 

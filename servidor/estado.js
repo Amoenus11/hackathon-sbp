@@ -5,11 +5,20 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from '
 import { join, basename } from 'node:path';
 import { readdirSync } from 'node:fs';
 import { leerCatalogos } from '../motor/cargar.js';
-import { procesarArchivo, compararPeriodos, PARAMETROS_INICIALES, ErrorDatos } from '../motor/motor.js';
+import { procesarArchivo, compararPeriodos, mesesEntre, PARAMETROS_INICIALES, ErrorDatos } from '../motor/motor.js';
 import { generar } from '../motor/exportar.js';
 import { leerArchivoSubido } from './leerArchivo.js';
 
 const MAX_REGISTRO = 1000;
+
+/** Lee un booleano sin trampas: Boolean('false') sería true, por eso se interpreta el texto. */
+function aBooleano(v) {
+  if (typeof v === 'boolean') return v;
+  const t = String(v).trim().toLowerCase();
+  if (['true', '1', 'si', 'sí'].includes(t)) return true;
+  if (['false', '0', 'no'].includes(t)) return false;
+  throw new ErrorDatos('«Cambio de líder» debe ser verdadero o falso.');
+}
 
 export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-locales', inicial = 'todos' } = {}) {
   const catalogos = leerCatalogos(carpetaReto);
@@ -69,10 +78,16 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
   guardar();
 
   const lista = () => [...periodos.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  /** Pares de períodos vecinos que NO son meses seguidos (falta un mes entre ellos). */
+  const huecos = () => {
+    const l = lista();
+    return l.slice(1).map((p, k) => ({ desde: l[k].fecha, hasta: p.fecha, meses: mesesEntre(l[k].fecha, p.fecha) })).filter((h) => h.meses !== 1);
+  };
 
   return {
     catalogos,
     lista,
+    huecos,
     publicarEn(carpeta) { carpetaResultados = carpeta; publicar(); },
     ultimo: () => lista().at(-1) || null,
     periodo(fecha) {
@@ -91,7 +106,7 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
       const pct = Number(nuevos.mov_var_saldo_pct);
       if (!Number.isInteger(min) || min < 1 || min > 11) throw new ErrorDatos('«Posiciones mínimas» debe ser un entero entre 1 y 11.');
       if (!Number.isFinite(pct) || pct < 0 || pct > 1000) throw new ErrorDatos('«Variación de saldo» debe ser un porcentaje entre 0 y 1000.');
-      guardado.parametros = { mov_min_posiciones: min, mov_cambio_lider: Boolean(nuevos.mov_cambio_lider), mov_var_saldo_pct: pct.toFixed(2) };
+      guardado.parametros = { mov_min_posiciones: min, mov_cambio_lider: aBooleano(nuevos.mov_cambio_lider), mov_var_saldo_pct: pct.toFixed(2) };
       guardar();
       publicar();
       return guardado.parametros;
@@ -110,7 +125,15 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
         const ruta = join(carpetaArchivos, `${marca}_${nombre.replace(/\.(xlsx|txt)$/i, '')}${/\.csv$/i.test(nombre) ? '' : '.csv'}`);
         writeFileSync(ruta, csv); // ya normalizado: es lo que se recalcula al arrancar
         const fechas = resultado.map((p) => p.fecha);
-        const reemplazo = fechas.some((f) => periodos.has(f));
+        // Si el archivo trae un período que ya existe, lo REEMPLAZA: se deja constancia de cuánto había y cuánto hay
+        // ahora, para que nada se pierda en silencio (un archivo parcial pisaría el corte completo).
+        const reemplazados = resultado
+          .filter((p) => periodos.has(p.fecha))
+          .map((p) => ({ fecha: p.fecha, filas_antes: periodos.get(p.fecha).filas_leidas, filas_despues: p.filas_leidas, archivo_anterior: periodos.get(p.fecha).archivo }));
+        const avisos = reemplazados.map((r) => (r.filas_despues < r.filas_antes
+          ? `El período ${r.fecha} ya existía con ${r.filas_antes} filas («${r.archivo_anterior}») y fue reemplazado por un archivo con solo ${r.filas_despues}. Si el archivo es parcial, cargue el período completo.`
+          : `El período ${r.fecha} ya existía (${r.filas_antes} filas) y fue reemplazado por este archivo (${r.filas_despues} filas).`));
+        const reemplazo = reemplazados.length > 0;
         // Solo se calcula el archivo nuevo; los anteriores que reemplaza por completo dejan de usarse (no se borran)
         guardado.archivos = guardado.archivos.filter((a) => !(a.fechas && a.fechas.length && a.fechas.every((f) => fechas.includes(f))));
         guardado.archivos.push({ nombre, ruta, cargado: new Date().toISOString(), usuario, fechas });
@@ -118,7 +141,7 @@ export function crearEstado({ carpetaReto = 'datos/reto', carpetaLocal = 'datos-
         for (const p of resultado) periodos.set(p.fecha, p);
         publicar();
         Object.assign(entrada, { ok: true, fechas, filas: resultado.reduce((t, p) => t + p.filas_leidas, 0), milisegundos: Date.now() - inicio, conversion });
-        return { fechas, reemplazo, conversion };
+        return { fechas, reemplazo, reemplazados, avisos, conversion };
       } catch (e) {
         Object.assign(entrada, { ok: false, error: e.message, detalle: e.detalle || null, milisegundos: Date.now() - inicio, conversion: e.detalle?.conversion || null });
         throw e;

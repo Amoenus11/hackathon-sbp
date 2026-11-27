@@ -76,15 +76,21 @@ Las contraseñas solo existen como huella **scrypt** dentro de `.env`, que **no*
 Por cada período (campo `Fecha`, nunca el nombre del archivo):
 
 1. **Lectura como texto** (`motor/csv.js`): los códigos conservan sus ceros (`07`, `001`, `0701`).
-2. **Esquema** (`validarEsquema`): 61 columnas con los nombres y el orden del diccionario. Un archivo inválido se
-   rechaza con un mensaje que dice qué falla, sin tocar los datos cargados.
+2. **Esquema y fechas** (`validarEsquema`, `fechaValida`): 61 columnas con los nombres y el orden del diccionario, y cada
+   `Fecha` debe existir en el calendario (mes 13, mes 00 o 30 de febrero se rechazan). Un archivo inválido se rechaza con un
+   mensaje que nombra el archivo y la fila, sin tocar los datos cargados. Los catálogos también se validan (un código CINU
+   repetido o una columna faltante se rechazan en vez de clasificar mal en silencio). **Montos:** un saldo con espacios alrededor o sin
+   2 decimales (`" 500.00"`, `500`) se normaliza sin cambiar su valor y queda una alerta `saldo_normalizado`; uno ambiguo (`1e3`, `NA`,
+   `1,000.00`) se excluye en E3 como «saldo ilegible» con alerta. Los **códigos** nunca se normalizan: `" L"` no es `L`.
 3. **Exclusiones en cascada** (`procesarPeriodo`): cada fila cuenta **una sola vez**, en el primer filtro que incumple:
    - **E1** `Numero_Prestamo` repetido en el período → se conserva la primera aparición según el orden del archivo.
    - **E2** `Destino` distinto de exactamente `L`.
    - **E3** `Saldo <= 0`.
    - **E4** `Tipo_Actividad` que no está en `Catalogo_CINU_SB109_reto.Codigo_CINU`.
    Se verifica `filas leídas = E1 + E2 + E3 + E4 + universo local válido`. Los conteos independientes de cada regla
-   se muestran aparte y rotulados como tales.
+   se muestran aparte y rotulados como tales. **Si un mismo período (`Fecha`) viene repartido en varios archivos, las
+   filas se reúnen** (los cálculos son por `Fecha`, no por archivo) y el duplicado entre archivos cuenta como E1. En la
+   plataforma, cargar un archivo de un mes que ya existe **lo reemplaza** y avisa cuántas filas había y cuántas hay ahora.
 4. **Clasificación solo por catálogo** (`AT03.Tipo_Actividad = CINU.Codigo_CINU`; nunca nombres ni datos del cliente)
    y **regla de CONSUMO con SB21**: Crédito personal con facilidad `07` se reclasifica a *Tarjeta* (el total de
    CONSUMO no cambia). Tarjeta sin `07` o Automóvil sin `03` generan alerta y conservan su subactividad.
@@ -92,7 +98,11 @@ Por cada período (campo `Fecha`, nunca el nombre del archivo):
    `Total_Cartera_Local_Valida_Banco` (sobre todo el universo del banco, antes de cualquier filtro de la vista).
 6. **Ponderación** = saldo de la actividad / total de cartera × 100, con 4 decimales y redondeo aritmético exacto.
 7. **Ranking**: saldo descendente; empate → `Codigo_Banco` ascendente; siempre los 12 bancos (0.00 si no tienen saldo).
-8. **Controles**: integridad referencial (alertas), unicidad de préstamos, reconciliaciones **R1, R2 y R3 al centavo**.
+8. **Controles**: integridad referencial (alertas), unicidad de préstamos y reconciliaciones **I, R1, R2, R3, U y C al centavo**.
+   R1, R2, I y U documentan que el desglose cuadra con los totales (se suman en el mismo recorrido); R3 compara contra el
+   catálogo de bancos y detecta un banco no registrado; C recalcula CONSUMO *sin* la regla SB21 desde el catálogo y lo compara con
+   el resultado *con* la regla. La garantía fuerte es la doble implementación independiente (sección 6). `Cuadra` en `calidad.csv`
+   es `SI` solo si cuadran la identidad de filas **y** todas las reconciliaciones; las alertas se exportan en `alertas.csv`.
 9. **Movimientos** entre períodos consecutivos: `Cambio_Posicion = anterior − actual` (positivo = sube),
    `Var_Saldo` y `Var_Saldo_Pct`.
 
@@ -102,8 +112,26 @@ Un movimiento es significativo si cumple **cualquiera** de estas condiciones (va
 - hay **cambio de líder** (un banco llega al 1.er lugar o lo pierde);
 - `|Var_Saldo_Pct| >= 15 %`.
 
+Además: un banco que **entra** a un sector (saldo anterior 0) o **sale** de él se marca siempre, porque un porcentaje sobre una base 0
+no existe (`Var_Saldo_Pct = NA`); un banco con 0 en ambos meses no se mueve (sus puestos solo reflejan el desempate por código); y el
+liderazgo exige saldo mayor que 0. También se informa cuántos puntos porcentuales crece cada banco **frente al sector** (variación del
+banco − variación de todo el ranking).
+
 El Administrador cambia estos umbrales en **Parámetros**, sin tocar el código; el cambio queda en el registro.
 
+#### ¿De dónde sale el 15 %?
+El reto deja la regla a cada equipo, así que el umbral se calibró con los datos: las 144 variaciones de saldo entre meses seguidos tienen
+mediana 8,9 %, el 75 % varía menos de 11,7 % y el **90 % varía menos de 14,7 %** (máximo 24,2 %). Con 15 % se marca cerca del 10 % más
+extremo (14 de 144). Con 10 % se marcaría más de un tercio (51) y con 20 % casi nada (2): dejaría de ser «significativo». La pantalla
+*Comparar* recalcula la mediana y el percentil 90 de la comparación elegida. Entre meses no consecutivos (por ejemplo julio → septiembre) la
+variación acumula varios meses y se marcan muchos más bancos; la plataforma lo avisa.
+
+### Morosidad (norma de la SBP; el reto no la define)
+Se sigue el [Acuerdo 4-2013 de la Superintendencia de Bancos de Panamá](https://www.superbancos.gob.pa/documentos/leyes_y_regulaciones/acuerdos/2013/Compilado_Acuerdo_4-2013.pdf),
+artículo 2, numerales 13 y 14: una facilidad es **morosa** con importes impagos de **más de 30 y hasta 90 días**, y **vencida** con **más de 90 días**;
+los **sobregiros** (SB21 `04` y `05`) pasan a vencidos al superar **30 días**. Se aplica a todo el saldo de la facilidad usando `Dias_Mora`.
+(Las «operaciones de un solo pago al vencimiento», que la norma trata como los sobregiros, no se identifican con los campos del AT03 y no se aplican.)
+Son indicadores adicionales: no intervienen en los rankings.
 ### Anatomía del cambio (innovación)
 Como un mismo `Numero_Prestamo` aparece mientras está vigente, explicamos **por qué** cambió el saldo de cada
 banco en cada actividad, exacto al centavo: `saldo anterior + préstamos nuevos − préstamos que terminaron +
@@ -129,11 +157,12 @@ Desde la app (*Rankings*, *Calidad*, *Comparar*, *Reportes*) o con `npm run expo
 | `desglose.csv` | Fecha, Ranking, Subactividad, Codigo_Banco, Saldo |
 | `calidad.csv` | Fecha, Filas_Leidas, E1–E4, Universo_Local_Valido, Saldo_Universo_Local_Valido, Cuadra |
 | `movimientos.csv` | Fecha_Anterior, Fecha_Actual, Ranking, Codigo_Banco, Banco, posiciones, Cambio_Posicion, saldos, Var_Saldo, Var_Saldo_Pct, Significativo, Motivo |
-| `excluidas.csv` | Fecha, Fila, Numero_Prestamo, Codigo_Banco, Filtro, Motivo (lista trazable de cada exclusión) |
+| `excluidas.csv` | Fecha, Fila, Numero_Prestamo, Codigo_Banco, Filtro, Motivo (lista trazable de cada exclusión; en E1 indica qué fila y archivo se conservó) |
+| `alertas.csv` | *(complemento, no es uno de los 5 oficiales)* Fecha, Tipo, Severidad, Cantidad, Descripcion, Reconciliaciones_Con_Diferencias |
 
 ## 6. Pruebas y verificación (evidencia)
 
-- **`npm test`** — 17 pruebas (`pruebas/`): cascada con casos hechos a mano (una fila extranjera y negativa cuenta
+- **`npm test`** — 36 pruebas (`pruebas/`; `revision.test.js` cubre los casos límite: fecha imposible, un mes en dos archivos, banco desconocido con R3 que falla, morosidad, saldo 0 en comparaciones, rechazos en la API): cascada con casos hechos a mano (una fila extranjera y negativa cuenta
   solo en E2; `l` minúscula no es `L`; el duplicado se decide por orden de archivo), regla SB21, desempate,
   denominador único, ponderaciones ≈ 100, reconciliaciones, archivos inválidos, perfiles y permisos, carga de un
   período nuevo y comparación automática, columnas exactas de las exportaciones.

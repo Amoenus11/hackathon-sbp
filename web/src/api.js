@@ -88,8 +88,8 @@ export const api = {
 
   // Consulta
   meta: () => solicitar('/meta'),
-  panel: (fecha) => solicitar(`/panel${consulta({ fecha })}`),
-  rankings: (fecha, ranking) => solicitar(`/rankings${consulta({ fecha, ranking })}`),
+  panel: (fecha, comparar) => solicitar(`/panel${consulta({ fecha, comparar })}`),
+  rankings: (fecha, ranking, comparar) => solicitar(`/rankings${consulta({ fecha, ranking, comparar })}`),
   matriz: (fecha) => solicitar(`/matriz${consulta({ fecha })}`),
   historia: (ranking) => solicitar(`/historia${consulta({ ranking })}`),
   desglose: (fecha, ranking, banco) => solicitar(`/desglose${consulta({ fecha, ranking, banco })}`),

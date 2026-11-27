@@ -29,6 +29,20 @@ export const CINU_AUTOMOVIL = 'K.64.649.6492.64922';
 export const CINU_TARJETA = 'K.64.649.6499.64991';
 const FACILIDAD_TARJETA = '07';
 const FACILIDAD_AUTO = '03';
+// Morosidad y vencimiento según el Acuerdo 4-2013 de la Superintendencia de Bancos de Panamá (art. 2, num. 13 y 14):
+//  · moroso  = facilidad con importes impagos de MÁS de 30 y HASTA 90 días;
+//  · vencido = más de 90 días; y los sobregiros (SB21: 04 contractual, 05 ocasional) pasan a vencidos
+//    cuando la falta de pago supera 30 días.
+// Se aplica a TODO el saldo de la facilidad (la regla clasifica la facilidad completa, no solo la cuota impaga).
+export const FACILIDADES_SOBREGIRO = new Set(['04', '05']);
+export const DIAS_MOROSO = 30;
+export const DIAS_VENCIDO = 90;
+export function estadoMora(diasMora, facilidad) {
+  const sobregiro = FACILIDADES_SOBREGIRO.has(facilidad);
+  if (diasMora > DIAS_VENCIDO || (sobregiro && diasMora > DIAS_MOROSO)) return 'vencida';
+  if (diasMora > DIAS_MOROSO) return 'morosa';
+  return 'al_dia_o_menor'; // 0 a 30 días: no es moroso ni vencido para la norma
+}
 
 // Campos que se pueden descargar por préstamo. Nunca los personales (ID_Cliente, Nombre_Cliente).
 export const CAMPOS_DETALLE = [
@@ -49,7 +63,14 @@ export const etiquetaCorta = (f) => `${MESES[Number(f.slice(4, 6)) - 1].slice(0,
 // ---------------------------------------------------------------------------- catálogos
 /** Recibe el TEXTO de los 4 archivos de referencia y arma los catálogos. */
 export function cargarCatalogos({ cinu, sb21, bancos, diccionario }) {
+  const exigir = (nombre, filas, columnas) => {
+    const faltan = columnas.filter((c) => !filas.length || !(c in filas[0]));
+    if (faltan.length) throw new ErrorDatos(`El catálogo ${nombre} no tiene las columnas: ${faltan.join(', ')}.`);
+  };
   const filasCinu = leerCsvObjetos(cinu);
+  exigir('CINU/SB109', filasCinu, ['Codigo_CINU', 'Descripcion', 'Macroactividad_Reto', 'Subactividad_Reto']);
+  const repetidos = filasCinu.map((f) => f.Codigo_CINU).filter((c, k, todos) => todos.indexOf(c) !== k);
+  if (repetidos.length) throw new ErrorDatos(`El catálogo CINU tiene códigos repetidos (el catálogo congelado debe ser único): ${[...new Set(repetidos)].slice(0, 5).join(', ')}.`);
   const porCodigo = new Map();
   const subactividades = Object.fromEntries(ORDEN_RANKINGS.map((r) => [r, []]));
   for (const f of filasCinu) {
@@ -62,8 +83,12 @@ export function cargarCatalogos({ cinu, sb21, bancos, diccionario }) {
     if (!lista) throw new ErrorDatos(`Macroactividad desconocida en el catálogo CINU: ${entrada.macroactividad}`);
     if (!lista.includes(entrada.subactividad)) lista.push(entrada.subactividad);
   }
-  const listaSb21 = leerCsvObjetos(sb21).map((f) => ({ codigo: f.Codigo, descripcion: f.Descripcion, uso: f.Uso_en_reto }));
-  const listaBancos = leerCsvObjetos(bancos)
+  const filasSb21 = leerCsvObjetos(sb21);
+  exigir('SB21', filasSb21, ['Codigo', 'Descripcion']);
+  const listaSb21 = filasSb21.map((f) => ({ codigo: f.Codigo, descripcion: f.Descripcion, uso: f.Uso_en_reto }));
+  const filasBancos = leerCsvObjetos(bancos);
+  exigir('de bancos', filasBancos, ['Codigo_Banco', 'Nombre_Ficticio']);
+  const listaBancos = filasBancos
     .map((f) => ({ codigo: f.Codigo_Banco, nombre: f.Nombre_Ficticio, licencia: f.Tipo_Licencia }))
     .sort((a, b) => a.codigo.localeCompare(b.codigo));
   const filasDiccionario = leerCsvObjetos(diccionario);
@@ -102,42 +127,83 @@ export function validarEsquema(encabezado, catalogos) {
 }
 
 // ---------------------------------------------------------------------------- lectura
-/**
- * Procesa el texto de un archivo AT03. Devuelve un resultado por cada Fecha que contenga
- * (el período se toma del campo Fecha, no del nombre del archivo).
- */
-export function procesarArchivo(texto, nombreArchivo, catalogos, ahora = new Date()) {
+/** ¿Existe esa fecha en el calendario? (AAAAMMDD; rechaza mes 13, mes 00, 30 de febrero, etc.) */
+export function fechaValida(f) {
+  if (!/^\d{8}$/.test(f)) return false;
+  const a = Number(f.slice(0, 4)), m = Number(f.slice(4, 6)), d = Number(f.slice(6, 8));
+  const t = new Date(Date.UTC(a, m - 1, d));
+  return a >= 1900 && t.getUTCFullYear() === a && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
+/** Meses transcurridos entre dos fechas AAAAMMDD (julio → agosto = 1). */
+export const mesesEntre = (desde, hasta) => (Number(hasta.slice(0, 4)) * 12 + Number(hasta.slice(4, 6))) - (Number(desde.slice(0, 4)) * 12 + Number(desde.slice(4, 6)));
+
+/** Lee y valida un archivo AT03: devuelve sus filas agrupadas por Fecha (todavía sin calcular nada). */
+function leerAt03(texto, nombreArchivo, catalogos) {
   const { encabezado, filas } = leerCsv(texto);
-  if (!encabezado.length) throw new ErrorDatos('El archivo está vacío.');
+  if (!encabezado.length) throw new ErrorDatos(`El archivo «${nombreArchivo}» está vacío.`);
   const esquema = validarEsquema(encabezado, catalogos);
-  if (!esquema.ok) throw new ErrorDatos(`El archivo no tiene la estructura AT03 del reto. ${esquema.problemas.join(' ')}`);
-  if (!filas.length) throw new ErrorDatos('El archivo no tiene filas de datos.');
+  if (!esquema.ok) throw new ErrorDatos(`El archivo «${nombreArchivo}» no tiene la estructura AT03 del reto. ${esquema.problemas.join(' ')}`);
+  if (!filas.length) throw new ErrorDatos(`El archivo «${nombreArchivo}» no tiene filas de datos.`);
   const i = Object.fromEntries(encabezado.map((c, k) => [c, k]));
   const porFecha = new Map();
   filas.forEach((valores, k) => {
     if (valores.length !== encabezado.length) {
-      throw new ErrorDatos(`La fila ${k + 1} tiene ${valores.length} campos; se esperaban ${encabezado.length}.`);
+      throw new ErrorDatos(`La fila ${k + 1} de «${nombreArchivo}» tiene ${valores.length} campos; se esperaban ${encabezado.length}.`);
     }
     const fecha = valores[i.Fecha];
-    if (!/^\d{8}$/.test(fecha)) throw new ErrorDatos(`La fila ${k + 1} tiene una Fecha inválida («${fecha}»); se espera AAAAMMDD.`);
+    if (!fechaValida(fecha)) {
+      throw new ErrorDatos(`La fila ${k + 1} de «${nombreArchivo}» tiene una Fecha inválida («${fecha}»): debe ser AAAAMMDD y existir en el calendario.`);
+    }
     if (!porFecha.has(fecha)) porFecha.set(fecha, []);
-    porFecha.get(fecha).push({ fila: k + 1, v: valores });
+    porFecha.get(fecha).push({ fila: k + 1, v: valores, archivo: nombreArchivo });
   });
+  return { i, esquema, porFecha };
+}
+
+/**
+ * Procesa el texto de UN archivo AT03. Devuelve un resultado por cada Fecha que contenga
+ * (el período se toma del campo Fecha, no del nombre del archivo).
+ */
+export function procesarArchivo(texto, nombreArchivo, catalogos, ahora = new Date()) {
+  return procesarArchivos([{ texto, nombre: nombreArchivo, cargado: ahora }], catalogos);
+}
+
+/**
+ * Procesa varios archivos AT03 JUNTOS. Si un mismo período (Fecha) viene repartido en más de un
+ * archivo, sus filas se reúnen en el orden dado, como pide el instructivo (los cálculos son por Fecha,
+ * no por archivo). Ningún archivo reemplaza en silencio a otro.
+ */
+export function procesarArchivos(entradas, catalogos) {
+  const porFecha = new Map();
+  let i = null;
+  let esquema = null;
+  for (const e of entradas) {
+    const leido = leerAt03(e.texto, e.nombre, catalogos);
+    i = leido.i; esquema = leido.esquema;
+    for (const [fecha, filas] of leido.porFecha) {
+      if (!porFecha.has(fecha)) porFecha.set(fecha, { filas: [], archivos: [], cargado: e.cargado ?? new Date() });
+      const g = porFecha.get(fecha);
+      g.filas.push(...filas);
+      if (!g.archivos.includes(e.nombre)) g.archivos.push(e.nombre);
+    }
+  }
   return [...porFecha.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([fecha, filasPeriodo]) => procesarPeriodo(fecha, filasPeriodo, i, catalogos, nombreArchivo, esquema, ahora));
+    .map(([fecha, g]) => procesarPeriodo(fecha, g.filas, i, catalogos, g.archivos, esquema, g.cargado));
 }
 
 // ---------------------------------------------------------------------------- B y C
-function procesarPeriodo(fecha, filas, i, cat, archivo, esquema, ahora) {
-  const vistos = new Set();
+function procesarPeriodo(fecha, filas, i, cat, archivos, esquema, ahora) {
+  const archivo = archivos.join(', ');
+  const vistos = new Map(); // Numero_Prestamo → dónde está su primera aparición
   const cascada = { E1: 0, E2: 0, E3: 0, E4: 0 };
   const independientes = { E1: 0, E2: 0, E3: 0, E4: 0 };
   const excluidas = [];
-  const conteoAlertas = { banco: new Map(), facilidad: new Map(), tarjeta: 0, auto: 0, saldoInvalido: 0 };
+  const conteoAlertas = { banco: new Map(), facilidad: new Map(), tarjeta: 0, auto: 0, saldoInvalido: 0, saldoNormalizado: 0 };
   const universo = [];
 
-  for (const { fila, v } of filas) {
+  for (const { fila, v, archivo: archivoFila } of filas) {
     const prestamo = v[i.Numero_Prestamo];
     const destino = v[i.Destino];
     const textoSaldo = v[i.Saldo];
@@ -152,17 +218,23 @@ function procesarPeriodo(fecha, filas, i, cat, archivo, esquema, ahora) {
     if (destino !== 'L') independientes.E2++;
     if (saldo === null || saldo <= 0n) independientes.E3++;
     if (!cat.cinu.has(actividad)) independientes.E4++;
+    // Saldo legible pero con formato distinto del oficial (espacios, sin 2 decimales): se normaliza y se deja constancia
+    if (saldo !== null && !/^-?\d+\.\d{2}$/.test(textoSaldo)) conteoAlertas.saldoNormalizado++;
     // Integridad referencial: alerta de calidad, no causa de exclusión
     if (!cat.bancoPorCodigo.has(banco)) conteoAlertas.banco.set(banco, (conteoAlertas.banco.get(banco) || 0) + 1);
     if (!cat.sb21.has(facilidad)) conteoAlertas.facilidad.set(facilidad, (conteoAlertas.facilidad.get(facilidad) || 0) + 1);
 
     const excluir = (filtro, motivo) => {
       cascada[filtro]++;
-      excluidas.push({ fila, numero_prestamo: prestamo, codigo_banco: banco, filtro, motivo, destino, saldo: textoSaldo, tipo_actividad: actividad });
+      excluidas.push({ fila, archivo: archivoFila, numero_prestamo: prestamo, codigo_banco: banco, filtro, motivo, destino, saldo: textoSaldo, tipo_actividad: actividad });
     };
     // E1 — Duplicados: se conserva la primera aparición según el orden del archivo
-    if (duplicado) { excluir('E1', 'Numero_Prestamo duplicado en el período'); continue; }
-    vistos.add(prestamo);
+    if (duplicado) {
+      const primera = vistos.get(prestamo);
+      excluir('E1', `Numero_Prestamo duplicado en el período (se conserva la fila ${primera.fila} de ${primera.archivo})`);
+      continue;
+    }
+    vistos.set(prestamo, { fila, archivo: archivoFila });
     // E2 — Destino extranjero (comparación exacta con «L»)
     if (destino !== 'L') { excluir('E2', `Destino extranjero (${destino})`); continue; }
     // E3 — Saldo cero, negativo o ilegible
@@ -182,13 +254,13 @@ function procesarPeriodo(fecha, filas, i, cat, archivo, esquema, ahora) {
     if (actividad === CINU_TARJETA && facilidad !== FACILIDAD_TARJETA) conteoAlertas.tarjeta++;
     if (actividad === CINU_AUTOMOVIL && facilidad !== FACILIDAD_AUTO) conteoAlertas.auto++;
     universo.push({
-      banco, prestamo, saldo, macro: clase.macroactividad, subactividad, reclasificada,
-      diasMora: Number(v[i.Dias_Mora]) || 0,
+      banco, prestamo, saldo, macro: clase.macroactividad, subactividad, subCatalogo: clase.subactividad, reclasificada,
+      facilidad, diasMora: Number(v[i.Dias_Mora]) || 0,
       vence: String(v[i.Fecha_Vencimiento] || '').slice(0, 6),
       det: Object.fromEntries(CAMPOS_DETALLE.map((c) => [c, v[i[c]]])), // para «Descarga a tu medida»
     });
   }
-  const resultado = agregar({ fecha, archivo, cargado: ahora.toISOString(), filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema });
+  const resultado = agregar({ fecha, archivo, archivos, cargado: ahora.toISOString(), filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema });
   // Cada préstamo válido con su banco, actividad y saldo: permite explicar POR QUÉ cambió un saldo
   // entre dos meses (un mismo Numero_Prestamo aparece mientras está vigente).
   resultado.validas = universo; // cada préstamo válido con su clasificación y sus campos de detalle
@@ -196,16 +268,17 @@ function procesarPeriodo(fecha, filas, i, cat, archivo, esquema, ahora) {
   return resultado;
 }
 
-function agregar({ fecha, archivo, cargado, filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema }) {
+function agregar({ fecha, archivo, archivos, cargado, filas, cascada, independientes, excluidas, conteoAlertas, universo, cat, esquema }) {
   // Acumuladores por banco → macroactividad → subactividad (centavos enteros)
   const porBanco = new Map();
   const nuevoBanco = () => ({
-    total: 0n, operaciones: 0, mora: 0n, mora90: 0n,
+    total: 0n, operaciones: 0, atraso: 0n, morosa: 0n, vencida: 0n, consumoCatalogo: 0n, consumoPersonalCatalogo: 0n, consumoTarjetaCatalogo: 0n,
     macros: new Map(ORDEN_RANKINGS.map((m) => [m, { saldo: 0n, operaciones: 0, subs: new Map(cat.subactividades[m].map((s) => [s, { saldo: 0n, operaciones: 0, reclasificadas: 0 }])) }])),
   });
   let saldoUniverso = 0n;
-  let moraSistema = 0n;
-  let mora90Sistema = 0n;
+  let atrasoSistema = 0n;
+  let morosaSistema = 0n;
+  let vencidaSistema = 0n;
   for (const u of universo) {
     if (!porBanco.has(u.banco)) porBanco.set(u.banco, nuevoBanco());
     const b = porBanco.get(u.banco);
@@ -214,8 +287,16 @@ function agregar({ fecha, archivo, cargado, filas, cascada, independientes, excl
     s.saldo += u.saldo; s.operaciones++; if (u.reclasificada) s.reclasificadas++;
     m.saldo += u.saldo; m.operaciones++;
     b.total += u.saldo; b.operaciones++;
-    if (u.diasMora > 0) { b.mora += u.saldo; moraSistema += u.saldo; }
-    if (u.diasMora > 90) { b.mora90 += u.saldo; mora90Sistema += u.saldo; }
+    if (u.diasMora > 0) { b.atraso += u.saldo; atrasoSistema += u.saldo; } // cualquier atraso (informativo, no es mora regulatoria)
+    const mora = estadoMora(u.diasMora, u.facilidad);
+    if (mora === 'morosa') { b.morosa += u.saldo; morosaSistema += u.saldo; }
+    if (mora === 'vencida') { b.vencida += u.saldo; vencidaSistema += u.saldo; }
+    // Control C: CONSUMO según el catálogo CINU, SIN aplicar la regla SB21 (ruta independiente del desglose)
+    if (u.macro === 'CONSUMO') {
+      b.consumoCatalogo += u.saldo;
+      if (u.subCatalogo === 'Credito personal') b.consumoPersonalCatalogo += u.saldo;
+      if (u.subCatalogo === cat.nombreTarjeta) b.consumoTarjetaCatalogo += u.saldo;
+    }
     saldoUniverso += u.saldo;
   }
   const datosBanco = (codigo) => porBanco.get(codigo) || nuevoBanco();
@@ -266,13 +347,26 @@ function agregar({ fecha, archivo, cargado, filas, cascada, independientes, excl
   }
   const sumaTotales12 = cat.bancos.reduce((t, b) => t + datosBanco(b.codigo).total, 0n);
   const unicos = new Set(universo.map((u) => u.prestamo)).size === universo.length;
-  const consumoSinReglaOk = true; // la reclasificación solo mueve saldo dentro de CONSUMO (el total por banco no cambia por construcción)
+  // Control C: por banco, (a) el total de CONSUMO CON la regla SB21 (suma de sus 3 subactividades) es igual al total
+  // SIN la regla (según el catálogo) y (b) el saldo que sale de «Credito personal» es exactamente el que entra a «Tarjeta».
+  let cDif = 0;
+  for (const b of cat.bancos) {
+    const d = datosBanco(b.codigo);
+    const subs = d.macros.get('CONSUMO').subs;
+    let conRegla = 0n;
+    for (const x of subs.values()) conRegla += x.saldo;
+    const personalCon = subs.get('Credito personal')?.saldo ?? 0n;
+    const tarjetaCon = subs.get(cat.nombreTarjeta)?.saldo ?? 0n;
+    const sale = d.consumoPersonalCatalogo - personalCon;
+    const entra = tarjetaCon - d.consumoTarjetaCatalogo;
+    if (conRegla !== d.consumoCatalogo || sale !== entra) cDif++;
+  }
   const reconciliaciones = [
     { id: 'R1', nombre: 'Suma de subactividades = saldo de la actividad (por banco y ranking)', ok: r1Dif === 0, revisados: r1Revisados, diferencias: r1Dif },
     { id: 'R2', nombre: 'Suma de las 6 actividades = total de cartera local válida (por banco)', ok: r2Dif === 0, revisados: cat.bancos.length, diferencias: r2Dif },
     { id: 'R3', nombre: 'Suma de los 12 totales = saldo del universo local válido', ok: sumaTotales12 === saldoUniverso, revisados: 1, diferencias: sumaTotales12 === saldoUniverso ? 0 : 1 },
     { id: 'U', nombre: 'Cada Numero_Prestamo es único en el universo local válido', ok: unicos, revisados: universo.length, diferencias: unicos ? 0 : 1 },
-    { id: 'C', nombre: 'Total de CONSUMO por banco igual con o sin la regla SB21', ok: consumoSinReglaOk, revisados: cat.bancos.length, diferencias: 0 },
+    { id: 'C', nombre: 'Total de CONSUMO por banco igual con o sin la regla SB21 (y lo que sale de Crédito personal = lo que entra a Tarjeta)', ok: cDif === 0, revisados: cat.bancos.length, diferencias: cDif },
   ];
 
   const alertas = [];
@@ -280,19 +374,21 @@ function agregar({ fecha, archivo, cargado, filas, cascada, independientes, excl
   for (const [codigo, n] of conteoAlertas.facilidad) alertas.push({ tipo: 'facilidad_desconocida', severidad: 'media', cantidad: n, texto: `Facilidad «${codigo}» no existe en la tabla SB21 (${n} filas).` });
   if (conteoAlertas.tarjeta) alertas.push({ tipo: 'consumo_incoherente', severidad: 'media', cantidad: conteoAlertas.tarjeta, texto: `${conteoAlertas.tarjeta} operaciones con CINU de Tarjeta no tienen facilidad 07; se mantienen como Tarjeta.` });
   if (conteoAlertas.auto) alertas.push({ tipo: 'consumo_incoherente', severidad: 'media', cantidad: conteoAlertas.auto, texto: `${conteoAlertas.auto} operaciones con CINU de Automóvil no tienen facilidad 03; se mantienen como Automóvil.` });
+  if (conteoAlertas.saldoNormalizado) alertas.push({ tipo: 'saldo_normalizado', severidad: 'baja', cantidad: conteoAlertas.saldoNormalizado, texto: `${conteoAlertas.saldoNormalizado} saldos traían espacios o no tenían 2 decimales («500», « 500.00»); se normalizaron sin cambiar su valor.` });
   if (conteoAlertas.saldoInvalido) alertas.push({ tipo: 'saldo_ilegible', severidad: 'alta', cantidad: conteoAlertas.saldoInvalido, texto: `${conteoAlertas.saldoInvalido} saldos no son montos válidos; se excluyeron en E3.` });
 
   const filasLeidas = filas.length;
   const suma = cascada.E1 + cascada.E2 + cascada.E3 + cascada.E4 + universo.length;
   return {
-    fecha, archivo, cargado, filas_leidas: filasLeidas, cascada, independientes,
-    universo: universo.length, saldo_universo: saldoUniverso, cuadra: suma === filasLeidas,
+    fecha, archivo, archivos, cargado, filas_leidas: filasLeidas, cascada, independientes,
+    universo: universo.length, saldo_universo: saldoUniverso, identidad_filas: suma === filasLeidas,
+    cuadra: suma === filasLeidas && reconciliaciones.every((r) => r.ok),
     esquema, alertas, reconciliaciones, excluidas, rankings, totales_ranking: totalesRanking, desglose,
     bancos: cat.bancos.map((b) => {
       const d = datosBanco(b.codigo);
-      return { codigo_banco: b.codigo, banco: b.nombre, total: d.total, operaciones: d.operaciones, mora: d.mora, mora90: d.mora90 };
+      return { codigo_banco: b.codigo, banco: b.nombre, total: d.total, operaciones: d.operaciones, atraso: d.atraso, morosa: d.morosa, vencida: d.vencida };
     }),
-    indicadores: { mora: moraSistema, mora90: mora90Sistema, reclasificadas_sb21: universo.filter((u) => u.reclasificada).length },
+    indicadores: { atraso: atrasoSistema, morosa: morosaSistema, vencida: vencidaSistema, reclasificadas_sb21: universo.filter((u) => u.reclasificada).length },
   };
 }
 
@@ -350,6 +446,11 @@ export function puenteEntreMeses(anterior, actual) {
 
 export const PARAMETROS_INICIALES = { mov_min_posiciones: 2, mov_cambio_lider: true, mov_var_saldo_pct: '15.00' };
 
+// Diezmilésimas enteras (1.2345 → 12345): se compara y se resta sin decimales binarios.
+const dmATexto = (n) => `${n < 0 ? '-' : ''}${Math.floor(Math.abs(n) / 10000)}.${String(Math.abs(n) % 10000).padStart(4, '0')}`;
+/** Monto corto legible: millones con 1 decimal desde 1 M; por debajo, el monto completo (no «0.0 M»). */
+const montoCorto = (c) => (c >= 100000000n || c <= -100000000n ? millones(c) : `${new Intl.NumberFormat('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(c) / 100)}`);
+
 /** Compara dos períodos (anterior → actual): Cambio_Posicion = anterior − actual. */
 export function compararPeriodos(anterior, actual, parametros = PARAMETROS_INICIALES) {
   const filas = [];
@@ -358,22 +459,36 @@ export function compararPeriodos(anterior, actual, parametros = PARAMETROS_INICI
   for (const macro of ORDEN_RANKINGS) {
     const previo = new Map(anterior.rankings[macro].map((f) => [f.codigo_banco, f]));
     const liderAnterior = anterior.rankings[macro][0];
+    // Variación del sector completo (suma de los 12 bancos): sirve para separar «crece más que el sector» de «crece con el sector»
+    const varSector = porcentaje(actual.totales_ranking[macro] - anterior.totales_ranking[macro], anterior.totales_ranking[macro]);
     for (const f of actual.rankings[macro]) {
       const p = previo.get(f.codigo_banco);
       const cambio = p.posicion - f.posicion;
       const varSaldo = f.saldo_actividad - p.saldo_actividad;
       const varPct = porcentaje(varSaldo, p.saldo_actividad);
+      const sinSaldoAntes = p.saldo_actividad === 0n;
+      const sinSaldoAhora = f.saldo_actividad === 0n;
       const motivos = [];
-      if (Math.abs(cambio) >= Number(parametros.mov_min_posiciones)) motivos.push(cambio > 0 ? `Sube ${cambio} posiciones` : `Baja ${-cambio} posiciones`);
-      if (parametros.mov_cambio_lider && f.posicion === 1 && p.posicion !== 1) motivos.push('Nuevo líder');
-      if (parametros.mov_cambio_lider && p.posicion === 1 && f.posicion !== 1) motivos.push('Pierde el liderazgo');
-      if (varPct !== null && Math.abs(diezMilesimas(varPct)) >= diezMilesimas(parametros.mov_var_saldo_pct)) {
-        motivos.push(`Saldo ${varSaldo >= 0n ? '+' : '−'}${pctTexto(varPct)}`);
+      if (sinSaldoAntes && sinSaldoAhora) {
+        // Un banco sin cartera en este sector en ambos meses no se mueve: sus puestos solo reflejan el desempate por código.
+      } else {
+        if (Math.abs(cambio) >= Number(parametros.mov_min_posiciones)) motivos.push(cambio > 0 ? `Sube ${cambio} posiciones` : `Baja ${-cambio} posiciones`);
+        // El liderazgo exige tener saldo: un 0.00 que lidera por desempate no cuenta como líder.
+        if (parametros.mov_cambio_lider && f.posicion === 1 && p.posicion !== 1 && !sinSaldoAhora) motivos.push('Nuevo líder');
+        if (parametros.mov_cambio_lider && p.posicion === 1 && f.posicion !== 1 && !sinSaldoAntes) motivos.push('Pierde el liderazgo');
+        if (sinSaldoAntes) motivos.push('Entra al sector');
+        else if (sinSaldoAhora) motivos.push('Sale del sector');
+        else if (varPct !== null && Math.abs(diezMilesimas(varPct)) >= diezMilesimas(parametros.mov_var_saldo_pct)) {
+          motivos.push(`Saldo ${varSaldo >= 0n ? '+' : '−'}${pctTexto(varPct)}`);
+        }
       }
       const fila = {
         fecha_anterior: anterior.fecha, fecha_actual: actual.fecha, ranking: macro,
         codigo_banco: f.codigo_banco, banco: f.banco, posicion_anterior: p.posicion, posicion_actual: f.posicion, cambio,
         saldo_anterior: p.saldo_actividad, saldo_actual: f.saldo_actividad, var_saldo: varSaldo, var_saldo_pct: varPct,
+        // Frente al sector (puntos porcentuales): positivo = crece más que el conjunto de bancos en ese ranking
+        var_sector_pct: varSector,
+        var_vs_sector_pp: varPct !== null && varSector !== null ? dmATexto(diezMilesimas(varPct) - diezMilesimas(varSector)) : null,
         significativo: motivos.length > 0, motivos,
         anatomia: anatomia ? anatomia(macro, f.codigo_banco) : null,
       };
@@ -382,14 +497,30 @@ export function compararPeriodos(anterior, actual, parametros = PARAMETROS_INICI
     }
   }
   explicaciones.sort((a, b) => b.peso - a.peso);
-  return { desde: anterior.fecha, hasta: actual.fecha, regla: parametros, filas, explicaciones };
+  const marcados = filas.filter((f) => f.significativo).length;
+  // Cómo se reparten las variaciones de saldo (calculado con los datos, para justificar el umbral configurable)
+  const abs = filas.filter((f) => f.var_saldo_pct !== null && f.saldo_anterior > 0n && f.saldo_actual > 0n).map((f) => Math.abs(diezMilesimas(f.var_saldo_pct))).sort((a, b) => a - b);
+  const percentil = (q) => (abs.length ? dmATexto(abs[Math.max(0, Math.ceil(q * abs.length) - 1)]) : null);
+  return {
+    desde: anterior.fecha, hasta: actual.fecha, regla: parametros, filas, explicaciones,
+    meses_entre: mesesEntre(anterior.fecha, actual.fecha),
+    resumen: {
+      total: filas.length, significativos: marcados, pct_marcados: porcentaje(BigInt(marcados), BigInt(filas.length)) ?? '0.0000',
+      var_mediana_pct: percentil(0.5), var_p90_pct: percentil(0.9),
+    },
+  };
 }
 
 /** Explicación automática y determinista de un movimiento (sin IA). */
 function explicar(f, macro, liderAnterior, anterior, actual, anatomia) {
   const titulo = TITULO_RANKING[macro];
   const crecio = f.var_saldo >= 0n;
-  const saldoTxt = f.var_saldo_pct === null ? '' : `su saldo ${crecio ? 'creció' : 'bajó'} ${pctTexto(f.var_saldo_pct)} (${millones(f.saldo_anterior)} → ${millones(f.saldo_actual)})`;
+  const entra = f.saldo_anterior === 0n;
+  const sale = f.saldo_actual === 0n;
+  const saldoTxt = entra ? `entra al sector con ${montoCorto(f.saldo_actual)}`
+    : sale ? `sale del sector: su saldo pasa de ${montoCorto(f.saldo_anterior)} a 0.00`
+    : f.var_saldo === 0n ? `su saldo no varió (${montoCorto(f.saldo_actual)})`
+    : `su saldo ${crecio ? 'creció' : 'bajó'} ${pctTexto(f.var_saldo_pct)} (${montoCorto(f.saldo_anterior)} → ${montoCorto(f.saldo_actual)})`;
   // ¿A quién superó o quién lo superó? (bancos que cruzaron su posición)
   const antes = new Map(anterior.rankings[macro].map((x) => [x.codigo_banco, x.posicion]));
   const ahora = actual.rankings[macro];
@@ -403,24 +534,34 @@ function explicar(f, macro, liderAnterior, anterior, actual, anatomia) {
   // El motor del cambio (anatomía): préstamos nuevos frente a los que terminaron
   const an = f.anatomia;
   let motor = an && (an.n_nuevos || an.n_terminados)
-    ? ` Detrás del cambio: ${an.n_nuevos} préstamos nuevos (+${millones(an.nuevos)}) y ${an.n_terminados} que terminaron (−${millones(an.terminados)}).`
+    ? ` Detrás del cambio: ${an.n_nuevos} préstamos nuevos (+${montoCorto(an.nuevos)}) y ${an.n_terminados} que terminaron (−${montoCorto(an.terminados)}).`
     : '';
   // El porqué que nadie más cuenta: perdió puestos aunque prestó igual o más que quien lo superó
   if (an && anatomia && (f.cambio < 0 || (liderAnterior.codigo_banco === f.codigo_banco && f.posicion_actual !== 1))) {
     const rival = cruzados.map((x) => ({ x, a: anatomia(macro, x.codigo_banco) })).find(({ a }) => an.nuevos >= a.nuevos && an.terminados > a.terminados);
     if (rival) {
-      motor = ` No prestó menos: le vencieron más. Colocó ${millones(an.nuevos)} (más que ${rival.x.banco}, ${millones(rival.a.nuevos)}), pero le vencieron ${millones(an.terminados)} (a ${rival.x.banco}, ${millones(rival.a.terminados)}).`;
+      motor = ` No prestó menos: le vencieron más. Colocó ${montoCorto(an.nuevos)} (más que ${rival.x.banco}, ${montoCorto(rival.a.nuevos)}), pero le vencieron ${montoCorto(an.terminados)} (a ${rival.x.banco}, ${montoCorto(rival.a.terminados)}).`;
     }
   } else if (an && f.cambio > 0 && an.nuevos > an.terminados) {
-    motor = ` Sube por préstamos nuevos: colocó ${millones(an.nuevos)} en ${an.n_nuevos} operaciones.`;
+    motor = ` Sube por préstamos nuevos: colocó ${montoCorto(an.nuevos)} en ${an.n_nuevos} operaciones.`;
   }
   let texto;
   let tipo;
   let peso;
-  if (f.posicion_actual === 1 && f.posicion_anterior !== 1) {
+  if (f.posicion_actual === 1 && f.posicion_anterior !== 1 && !sale) {
     tipo = 'lider';
     peso = 1000;
     texto = `Nuevo líder en ${titulo}: ${f.banco} pasa del ${ordinal(f.posicion_anterior)} al 1.er lugar y desplaza a ${liderAnterior.banco}; ${saldoTxt}.`;
+  } else if (f.posicion_anterior === 1 && f.posicion_actual !== 1 && !entra) {
+    tipo = 'pierde_liderazgo';
+    peso = 900;
+    texto = `${f.banco} pierde el liderazgo de ${titulo} frente a ${ahora[0].banco} y queda en el ${ordinal(f.posicion_actual)} lugar; ${saldoTxt}.`;
+  } else if (entra || sale) {
+    tipo = entra ? 'entra' : 'sale';
+    peso = 800;
+    texto = entra
+      ? `${f.banco} entra al sector ${titulo}: ${saldoTxt} y queda en el ${ordinal(f.posicion_actual)} lugar.`
+      : `${f.banco} ${saldoTxt.replace('sale del sector', `sale del sector ${titulo}`)}.`;
   } else if (f.cambio !== 0) {
     tipo = f.cambio > 0 ? 'sube' : 'baja';
     peso = 100 + Math.abs(f.cambio) * 10;

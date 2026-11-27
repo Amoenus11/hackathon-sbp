@@ -12,7 +12,7 @@ import { crearProducto } from './producto.js';
 import { opciones as opcionesExtraccion, extraer, comoCsv, comoExcel } from './extraccion.js';
 import {
   ORDEN_RANKINGS, TIPO_RANKING, TITULO_RANKING, VERSION_MOTOR, ErrorDatos,
-  etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje, puenteEntreMeses,
+  etiquetaPeriodo, etiquetaCorta, aJson, aTexto, porcentaje, mesesEntre, puenteEntreMeses,
 } from '../motor/motor.js';
 import { generar } from '../motor/exportar.js';
 
@@ -75,8 +75,17 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     if (!ORDEN_RANKINGS.includes(r)) throw new ErrorDatos(`Ranking desconocido. Usa uno de: ${ORDEN_RANKINGS.join(', ')}.`);
     return r;
   };
-  const filasRanking = (p, macro) => {
-    const anterior = estado.anteriorDe(p.fecha);
+  // Período con el que se compara: por defecto el anterior; `?comparar=AAAAMMDD` elige otro (anterior al consultado) y
+  // `?comparar=ninguna` pide no comparar. Así un reporte puede salir TODO de una sola comparación.
+  const baseDe = (req, p) => {
+    const c = String(req.query.comparar || '');
+    if (!c) return estado.anteriorDe(p.fecha);
+    if (c === 'ninguna') return null;
+    const base = estado.periodo(c);
+    if (base.fecha >= p.fecha) throw new ErrorDatos('El período con el que se compara debe ser anterior al consultado.');
+    return base;
+  };
+  const filasRanking = (p, macro, anterior = estado.anteriorDe(p.fecha)) => {
     const previo = anterior ? new Map(anterior.rankings[macro].map((f) => [f.codigo_banco, f])) : null;
     return p.rankings[macro].map((f) => {
       const a = previo?.get(f.codigo_banco);
@@ -182,6 +191,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     res.json({
       periodos: estado.lista().map(resumenPeriodo),
       ultimo: estado.ultimo()?.fecha || null,
+      avisos: estado.huecos().map((h) => `Entre ${etiquetaPeriodo(h.desde)} y ${etiquetaPeriodo(h.hasta)} ${h.meses > 1 ? `faltan ${h.meses - 1} mes(es)` : 'los períodos no están en orden'}: las comparaciones de esos pares abarcan ${h.meses} meses, no uno.`),
       rankings: ORDEN_RANKINGS.map((r) => ({ nombre: r, titulo: TITULO_RANKING[r], tipo: TIPO_RANKING[r], subactividades: c.subactividades[r] })),
       bancos: c.bancos.map((b) => ({ codigo: b.codigo, nombre: b.nombre })),
       fuente: FUENTE, aviso: AVISO, parametros: estado.parametros, permisos: PERMISOS, version_motor: VERSION_MOTOR,
@@ -193,7 +203,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   // --- Panel principal
   app.get('/api/panel', (req, res) => {
     const p = fechaDe(req);
-    const a = estado.anteriorDe(p.fecha);
+    const a = baseDe(req, p);
     const excluidas = p.filas_leidas - p.universo;
     const concentracion = ORDEN_RANKINGS.map((macro) => {
       const total = Number(p.totales_ranking[macro]);
@@ -204,6 +214,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     });
     res.json({
       fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), fecha_anterior: a?.fecha || null,
+      meses_desde_anterior: a ? mesesEntre(a.fecha, p.fecha) : null,
       kpis: {
         cartera_total: aTexto(p.saldo_universo), cartera_total_anterior: a ? aTexto(a.saldo_universo) : null,
         var_cartera_pct: a ? porcentaje(p.saldo_universo - a.saldo_universo, a.saldo_universo) : null,
@@ -223,8 +234,11 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       composicion: ORDEN_RANKINGS.map((macro) => ({ ranking: macro, saldo: aTexto(p.totales_ranking[macro]), pct: porcentaje(p.totales_ranking[macro], p.saldo_universo) })),
       destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 8).map(({ peso, ...x }) => x) : [],
       indicadores: {
-        morosidad_pct: porcentaje(p.indicadores.mora, p.saldo_universo),
-        vencida_90_pct: porcentaje(p.indicadores.mora90, p.saldo_universo),
+        // Según el Acuerdo 4-2013 de la SBP (art. 2, num. 13 y 14): morosa = más de 30 y hasta 90 días; vencida = más de 90 días
+        // (los sobregiros pasan a vencidos al superar 30 días). «Atraso» = cualquier día de atraso, solo informativo.
+        morosa_pct: porcentaje(p.indicadores.morosa, p.saldo_universo),
+        vencida_pct: porcentaje(p.indicadores.vencida, p.saldo_universo),
+        atraso_pct: porcentaje(p.indicadores.atraso, p.saldo_universo),
         reclasificadas_sb21: p.indicadores.reclasificadas_sb21,
         concentracion,
       },
@@ -235,8 +249,8 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   app.get('/api/rankings', (req, res) => {
     const p = fechaDe(req);
     const macro = rankingDe(req);
-    const a = estado.anteriorDe(p.fecha);
-    res.json({ fecha: p.fecha, ranking: macro, fecha_anterior: a?.fecha || null, total_ranking: aTexto(p.totales_ranking[macro]), filas: filasRanking(p, macro) });
+    const a = baseDe(req, p);
+    res.json({ fecha: p.fecha, ranking: macro, fecha_anterior: a?.fecha || null, total_ranking: aTexto(p.totales_ranking[macro]), filas: filasRanking(p, macro, a) });
   });
   app.get('/api/matriz', (req, res) => {
     const p = fechaDe(req);
@@ -285,7 +299,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     const c = comparacion(req);
     const macro = rankingDe(req, false);
     res.json({
-      desde: c.desde, hasta: c.hasta, regla: c.regla,
+      desde: c.desde, hasta: c.hasta, regla: c.regla, meses_entre: c.meses_entre, resumen: c.resumen,
       filas: aJson(c.filas.filter((f) => !macro || f.ranking === macro)),
       explicaciones: c.explicaciones.filter((e) => !macro || e.ranking === macro).map((e) => e.texto),
     });
@@ -323,11 +337,11 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       nota: `Ningún préstamo desaparece sin explicación: ${b.vencian} de ${b.n_terminados} que salieron vencían en ${etiquetaPeriodo(p.fecha)} o antes.`,
     };
   };
-  app.get('/api/calidad', (req, res) => {
+  app.get('/api/calidad', permiso('calidad'), (req, res) => {
     const p = fechaDe(req);
     const cuarta = r4(p);
     res.json({
-      fecha: p.fecha, archivo: p.archivo, filas_leidas: p.filas_leidas, cascada: p.cascada, universo: p.universo,
+      fecha: p.fecha, archivo: p.archivo, archivos: p.archivos, filas_leidas: p.filas_leidas, cascada: p.cascada, universo: p.universo,
       saldo_universo: aTexto(p.saldo_universo), cuadra: p.cuadra, independientes: p.independientes,
       reconciliaciones: cuarta ? [...p.reconciliaciones, cuarta] : p.reconciliaciones, alertas: p.alertas, esquema: p.esquema,
       reclasificadas_sb21: p.indicadores.reclasificadas_sb21,
@@ -455,7 +469,7 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       registrar(req, 'carga_fallida', `${req.file.originalname} · ${e.message}`.slice(0, 300));
       throw e;
     }
-    const { fechas, reemplazo, conversion } = cargado;
+    const { fechas, reemplazo, reemplazados, avisos, conversion } = cargado;
     const procesados = fechas.map((f) => estado.periodo(f));
     let movimientos = 0;
     let explicaciones = [];
@@ -465,11 +479,15 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       const c = estado.comparar(anterior, ultimo);
       movimientos = c.filas.filter((f) => f.significativo).length;
       explicaciones = c.explicaciones.map((e) => e.texto).slice(0, 10);
+      if (c.meses_entre !== 1) avisos.push(`La comparación con ${etiquetaPeriodo(anterior.fecha)} abarca ${c.meses_entre} meses, no uno: faltan períodos intermedios.`);
     }
-    registrar(req, reemplazo ? 'actualizar_periodo' : 'cargar_periodo', `${req.file.originalname} · ${procesados.map((p) => `${p.fecha} (${p.filas_leidas} filas)`).join(', ')}`);
+    const huecos = estado.huecos().filter((h) => fechas.includes(h.hasta) || fechas.includes(h.desde));
+    for (const h of huecos) if (!avisos.some((x) => x.includes(`${h.meses} meses`))) avisos.push(`Entre ${etiquetaPeriodo(h.desde)} y ${etiquetaPeriodo(h.hasta)} ${h.meses > 1 ? `faltan ${h.meses - 1} mes(es)` : 'los períodos no están en orden'}.`);
+    for (const p of procesados) if (!p.cuadra) avisos.push(`El período ${p.fecha} NO cuadra: revisa las reconciliaciones y alertas en Calidad de datos.`);
+    registrar(req, reemplazo ? 'actualizar_periodo' : 'cargar_periodo', `${req.file.originalname} · ${procesados.map((p) => `${p.fecha} (${p.filas_leidas} filas)`).join(', ')}${avisos.length ? ` · ${avisos.length} aviso(s)` : ''}`);
     res.json({
       procesados: procesados.map((p) => ({ fecha: p.fecha, etiqueta: etiquetaPeriodo(p.fecha), filas_leidas: p.filas_leidas, universo: p.universo, cascada: p.cascada, cuadra: p.cuadra })),
-      reemplazo, comparado_con: anterior?.fecha || null, movimientos_significativos: movimientos, explicaciones, milisegundos: Date.now() - inicio, conversion,
+      reemplazo, reemplazados, avisos, comparado_con: anterior?.fecha || null, movimientos_significativos: movimientos, explicaciones, milisegundos: Date.now() - inicio, conversion,
     });
   });
   app.delete('/api/periodos/:fecha', permiso('cargar'), (req, res) => {
@@ -534,7 +552,9 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
       const contexto = {
         aviso: AVISO, fuente: FUENTE, periodo: etiquetaPeriodo(p.fecha), periodo_anterior: a ? etiquetaPeriodo(a.fecha) : null,
         unidad: 'unidades monetarias homogéneas',
-        calidad: { filas_leidas: p.filas_leidas, ...p.cascada, universo_local_valido: p.universo, saldo_universo: aTexto(p.saldo_universo) },
+        calidad: { filas_leidas: p.filas_leidas, ...p.cascada, universo_local_valido: p.universo, saldo_universo: aTexto(p.saldo_universo), cuadra: p.cuadra, alertas: p.alertas.map((x) => x.texto) },
+        cartera_morosa_pct: porcentaje(p.indicadores.morosa, p.saldo_universo), cartera_vencida_pct: porcentaje(p.indicadores.vencida, p.saldo_universo),
+        definicion_mora: 'Acuerdo 4-2013 SBP: morosa = más de 30 y hasta 90 días de atraso; vencida = más de 90 días (sobregiros: más de 30).',
         rankings: Object.fromEntries(ORDEN_RANKINGS.map((m) => [m, filasRanking(p, m).map((f) => ({ pos: f.posicion, banco: f.banco, saldo: f.saldo_actividad, ponderacion_pct: f.ponderacion_pct, cuota_pct: f.participacion_pct, cambio: f.cambio }))])),
         movimientos_destacados: a ? estado.comparar(a, p).explicaciones.slice(0, 15).map((e) => e.texto) : [],
       };
