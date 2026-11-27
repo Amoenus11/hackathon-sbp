@@ -10,7 +10,8 @@ export function ProveedorApp({ children }) {
   const [errorMeta, setErrorMeta] = useState(null);
   const [sesion, setSesion] = useState({ perfil: 'publico', usuario: null });
   const [fecha, setFecha] = useState(null);
-  const [modalSesion, setModalSesion] = useState(false);
+  // ?entrar=terminal: viene de nathalia.… o gui.…: se abre el inicio de sesión y luego vuelve a su terminal
+  const [modalSesion, setModalSesion] = useState(() => new URLSearchParams(window.location.search).has('entrar'));
 
   const recargarMeta = useCallback(async () => {
     try {

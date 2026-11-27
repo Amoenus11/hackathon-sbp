@@ -3,7 +3,7 @@
 import * as echarts from 'echarts';
 
 export const COLORES = {
-  marino: '#0b2545',
+  marino: '#0f172a',
   acento: '#0e7c86',
   acentoClaro: '#5fd3dc',
   texto: '#1b2a3a',
@@ -29,7 +29,7 @@ export function colorBanco(codigo) {
 
 // Colores de las 6 actividades (macroactividades)
 export const COLORES_RANKING = {
-  HIPOTECARIO: '#0b2545',
+  HIPOTECARIO: '#5b4bdb',
   CONSTRUCCION: '#0e7c86',
   INDUSTRIA: '#4e79a7',
   AGROPECUARIO: '#59a14f',
@@ -40,7 +40,7 @@ export const COLORES_RANKING = {
 const FUENTE = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
 echarts.registerTheme('syntropy', {
-  color: ['#0e7c86', '#0b2545', '#4e79a7', '#f28e2b', '#59a14f', '#b07aa1', '#e15759', '#edc948'],
+  color: ['#0e7c86', '#5b4bdb', '#f59e0b', '#e11d48', '#10b981', '#3b82f6', '#a855f7', '#64748b'],
   backgroundColor: 'transparent',
   textStyle: { fontFamily: FUENTE, color: COLORES.texto },
   title: { textStyle: { color: COLORES.texto, fontWeight: 600, fontSize: 14 } },

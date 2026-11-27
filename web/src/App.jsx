@@ -1,7 +1,7 @@
 // Estructura general: cabecera, franja de «datos ficticios», menú lateral según el perfil,
 // contenido de cada página y pie. Cada ruta verifica el perfil antes de mostrarse.
 import { useEffect, useState } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { useApp } from './contexto.jsx';
 import { SECCIONES, puede } from './permisos.js';
 import Cabecera from './componentes/Cabecera.jsx';
@@ -19,6 +19,7 @@ import Comparar from './paginas/Comparar.jsx';
 import Calidad from './paginas/Calidad.jsx';
 import Reportes from './paginas/Reportes.jsx';
 import Asistente from './paginas/Asistente.jsx';
+import Equipo from './paginas/Equipo.jsx';
 import CargarPeriodo from './paginas/admin/CargarPeriodo.jsx';
 import Parametros from './paginas/admin/Parametros.jsx';
 import Catalogos from './paginas/admin/Catalogos.jsx';
@@ -28,12 +29,12 @@ import NoEncontrada from './paginas/NoEncontrada.jsx';
 
 const PAGINAS = {
   panel: Panel, rankings: Rankings, metodologia: Metodologia, descargas: Descargas,
-  comparar: Comparar, calidad: Calidad, reportes: Reportes, asistente: Asistente,
+  comparar: Comparar, calidad: Calidad, reportes: Reportes, asistente: Asistente, equipo: Equipo,
   cargar: CargarPeriodo, parametros: Parametros, catalogos: Catalogos, perfiles: Perfiles, registro: Registro,
 };
 
 // Las páginas que necesitan datos de un período no tienen sentido si aún no hay ninguno cargado
-const SIN_PERIODO_OK = ['metodologia', 'descargas', 'cargar', 'parametros', 'catalogos', 'perfiles', 'registro'];
+const SIN_PERIODO_OK = ['metodologia', 'descargas', 'equipo', 'cargar', 'parametros', 'catalogos', 'perfiles', 'registro'];
 
 function Protegida({ seccion }) {
   const { sesion, meta } = useApp();
@@ -79,6 +80,11 @@ export default function App() {
         </main>
       </div>
       <Pie />
+      {ubicacion.pathname !== '/asistente' && (
+        <Link to="/asistente" className="boton-ia-flotante" aria-label="Abrir el asistente IA">
+          <span aria-hidden="true">✦</span> Pregúntale a la IA
+        </Link>
+      )}
       {modalSesion && <ModalSesion />}
     </div>
   );

@@ -9,8 +9,13 @@ export function Marca() {
   return (
     <span className="marca" aria-hidden="true">
       <svg viewBox="0 0 64 64" width="34" height="34">
-        <rect width="64" height="64" rx="14" fill="#0b2545" />
-        <g fill="#5fd3dc"><circle cx="16" cy="44" r="4" /><circle cx="28" cy="36" r="4" /><circle cx="40" cy="28" r="4" /><circle cx="52" cy="20" r="4" /></g>
+        <defs>
+          <linearGradient id="marca-degradado" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#0e7c86" /><stop offset="1" stopColor="#5b4bdb" />
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="14" fill="url(#marca-degradado)" />
+        <g fill="#ffffff"><circle cx="16" cy="44" r="4" /><circle cx="28" cy="36" r="4" /><circle cx="40" cy="28" r="4" /><circle cx="52" cy="20" r="4" /></g>
         <g fill="#ffffff" opacity=".45"><circle cx="14" cy="18" r="2.5" /><circle cx="25" cy="13" r="2" /><circle cx="48" cy="46" r="2.5" /></g>
       </svg>
     </span>
@@ -43,7 +48,7 @@ export default function Cabecera({ alAbrirMenu, menuAbierto }) {
       <Link to="/" className="cabecera-marca" aria-label="Ir al panel principal">
         <Marca />
         <span className="cabecera-textos">
-          <strong>Syntropy</strong>
+          <strong className="marca-texto">SYNTROPY</strong>
           <span>Observatorio de Crédito Bancario</span>
         </span>
       </Link>

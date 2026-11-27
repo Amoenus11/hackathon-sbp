@@ -179,7 +179,7 @@ export function opcionCalor(matriz, titulos, { seleccion = [] } = {}) {
     },
     visualMap: {
       min: 0, max: Math.ceil(maximo || 1), calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
-      inRange: { color: ['#f1f7f8', '#7cc5cb', '#0e7c86', '#0b2545'] }, text: ['más peso', 'menos'], textStyle: { fontSize: 11 },
+      inRange: { color: ['#f3f6fb', '#9fd6da', '#0e7c86', '#5b4bdb'] }, text: ['más peso', 'menos'], textStyle: { fontSize: 11 },
     },
     series: [{
       type: 'heatmap', data: datos,

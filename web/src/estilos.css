@@ -1,28 +1,31 @@
 /* =====================================================================
    Syntropy · Observatorio de Crédito Bancario — estilos
-   Institucional y sobrio: azul marino + verde azulado, mucho aire, números tabulares.
+   Identidad Syntropy: fondo claro, turquesa → violeta, tarjetas blancas, mucho aire, números tabulares.
    ===================================================================== */
 :root {
-  --marino: #0b2545;
-  --marino-2: #13315c;
-  --acento: #0e7c86;
-  --acento-oscuro: #0a5f67;
-  --acento-claro: #e4f3f4;
-  --fondo: #f4f6f9;
+  color-scheme: light;               /* la app es clara siempre (también si el sistema está en modo oscuro) */
+  --marino: #0f172a;                 /* tinta principal */
+  --marino-2: #1e293b;
+  --acento: #0e7c86;                 /* turquesa */
+  --acento-2: #5b4bdb;               /* violeta */
+  --acento-oscuro: #0a6870;
+  --acento-claro: #e6f4f5;
+  --degradado: linear-gradient(120deg, #0e7c86, #5b4bdb);
+  --fondo: #f6f7fb;
   --superficie: #ffffff;
-  --borde: #e3e8ef;
-  --borde-fuerte: #cdd6e1;
-  --texto: #1b2a3a;
-  --texto-2: #44546a;
+  --borde: #e2e8f0;
+  --borde-fuerte: #cbd5e1;
+  --texto: #0f172a;
+  --texto-2: #334155;
   --texto-3: #64748b;
   --sube: #15803d;
-  --baja: #b42318;
+  --baja: #b91c1c;
   --aviso: #b45309;
-  --aviso-fondo: #fff7e8;
-  --radio: 12px;
-  --radio-chico: 8px;
-  --sombra: 0 1px 2px rgba(11, 37, 69, .05), 0 4px 14px rgba(11, 37, 69, .05);
-  --sombra-alta: 0 18px 48px rgba(11, 37, 69, .18);
+  --aviso-fondo: #fff7ed;
+  --radio: 14px;
+  --radio-chico: 9px;
+  --sombra: 0 1px 2px rgba(15, 23, 42, .06), 0 4px 16px rgba(15, 23, 42, .06);
+  --sombra-alta: 0 20px 60px rgba(15, 23, 42, .22);
   --alto-cabecera: 64px;
   --alto-franja: 38px;
   --ancho-menu: 252px;
@@ -528,3 +531,55 @@ th.numerica .orden { flex-direction: row-reverse; }
   .tabla thead th { background: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .hoja-sello, .hoja-aviso, .punto-banco { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+
+/* =====================================================================
+   Identidad Syntropy (paleta de la primera versión): cabecera clara con la marca en degradado
+   ===================================================================== */
+body { background: radial-gradient(1200px 520px at 0% -10%, #e3f2f3 0, transparent 60%),
+                   radial-gradient(900px 480px at 100% 0%, #ece9fc 0, transparent 55%), var(--fondo); background-attachment: fixed; }
+.cabecera { background: rgba(255, 255, 255, .92); color: var(--texto); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--borde); box-shadow: none; }
+.cabecera::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--degradado); opacity: .85; }
+.cabecera-marca { color: var(--texto); }
+.marca svg { box-shadow: 0 4px 12px rgba(91, 75, 219, .25); }
+.marca-texto { font-weight: 800; letter-spacing: .18em; background: var(--degradado); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cabecera-textos span { color: var(--texto-3); }
+.selector-periodo { color: var(--texto-3); }
+.selector-periodo select { background: #fff; color: var(--texto); border: 1px solid var(--borde-fuerte); }
+.selector-periodo select:focus { border-color: var(--acento); outline: none; box-shadow: 0 0 0 3px rgba(14, 124, 134, .15); }
+.chip-perfil { background: var(--acento-claro); color: var(--acento-oscuro); border: 1px solid #c7e6e8; }
+.chip-analista { background: #eef2ff; color: #3f35b5; border-color: #d9dcfb; }
+.chip-administrador { background: #f3e8ff; color: #6b21a8; border-color: #e5d0fb; }
+.chip-usuario { color: inherit; opacity: .75; }
+.cabecera .boton-secundario { background: #fff; color: var(--texto); border-color: var(--borde-fuerte); }
+.boton-menu span { background: var(--texto); }
+.boton-primario { background: var(--degradado); color: #fff; border: 0; }
+.boton-primario:hover:not(:disabled) { background: var(--degradado); filter: brightness(1.08); }
+.menu { background: rgba(255, 255, 255, .85); backdrop-filter: blur(6px); }
+.menu-enlace.activo { background: var(--acento-claro); color: var(--acento-oscuro); box-shadow: inset 3px 0 0 var(--acento-2); }
+.kpi::before { background: var(--degradado); }
+tr:first-child .posicion { background: var(--degradado); color: #fff; }
+.pestanas-compactas .pestana.activa { background: var(--degradado); color: #fff; }
+.pestana.activa { border-bottom-color: var(--acento-2); }
+.filtro-id { background: var(--acento-2); }
+.nodo-entidad { border-color: #334155; box-shadow: 0 6px 18px rgba(15, 23, 42, .08); }
+.nodo-entidad-cabecera { background: var(--degradado); }
+.regla-exacta { border-left-color: var(--acento-2); background: #f5f3ff; }
+.hoja-cabecera { border-bottom: 3px solid; border-image: var(--degradado) 1; }
+
+/* Diagrama: siempre claro, con controles con nombre */
+.lienzo-diagrama { background: #fbfcfe; border-radius: 10px; }
+.lienzo-diagrama .react-flow { background: #fbfcfe; }
+.controles-diagrama { display: flex; gap: .4rem; flex-wrap: wrap; }
+.controles-diagrama .boton { box-shadow: var(--sombra); }
+
+/* Botón flotante del asistente IA (en todas las páginas) */
+.boton-ia-flotante {
+  position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 30; display: inline-flex; align-items: center; gap: .45rem;
+  padding: .75rem 1.1rem; border-radius: 999px; background: var(--degradado); color: #fff; font-weight: 700;
+  text-decoration: none; box-shadow: 0 10px 30px rgba(91, 75, 219, .35); transition: transform .15s, box-shadow .15s;
+}
+.boton-ia-flotante:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(91, 75, 219, .45); }
+@media print { .boton-ia-flotante { display: none; } }
+@media (max-width: 760px) { .boton-ia-flotante { right: .8rem; bottom: .8rem; padding: .65rem .9rem; font-size: .9rem; } }

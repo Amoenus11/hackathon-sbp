@@ -1,7 +1,7 @@
 // Metodología: diagrama interactivo de los datos (entidades, llaves y flujo de cálculo) y las reglas
 // explicadas en palabras simples. Al tocar un nodo se ve la regla exacta y los números del período.
 import { useMemo, useState } from 'react';
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow } from '@xyflow/react';
+import { Background, Handle, MarkerType, Panel, Position, ReactFlow, useReactFlow } from '@xyflow/react';
 import { api } from '../api.js';
 import { useApp, useDatos } from '../contexto.jsx';
 import { EncabezadoPagina, Tarjeta } from '../componentes/Comunes.jsx';
@@ -199,9 +199,9 @@ function construirDiagrama(c, elegido) {
   });
   const relacion = (id, s, sh, t, th, etiqueta) => ({
     id, source: s, target: t, sourceHandle: sh, targetHandle: th, label: etiqueta, type: 'default',
-    style: { stroke: '#0b2545', strokeWidth: 1.6, strokeDasharray: '6 4' },
-    labelStyle: { fill: '#0b2545', fontWeight: 600, fontSize: 11 }, labelBgStyle: { fill: '#ffffff' }, labelBgPadding: [4, 2],
-    markerEnd: { type: MarkerType.Arrow, color: '#0b2545' },
+    style: { stroke: '#5b4bdb', strokeWidth: 1.6, strokeDasharray: '6 4' },
+    labelStyle: { fill: '#334155', fontWeight: 600, fontSize: 11 }, labelBgStyle: { fill: '#ffffff' }, labelBgPadding: [4, 2],
+    markerEnd: { type: MarkerType.Arrow, color: '#5b4bdb' },
   });
   const uso = (id, s, t, th, etiqueta) => ({
     id, source: s, target: t, sourceHandle: 'uso', targetHandle: th, label: etiqueta, type: 'smoothstep',
@@ -254,9 +254,10 @@ export default function Metodologia() {
               nodesDraggable={false} nodesConnectable={false} elementsSelectable
               onNodeClick={(_, nodo) => setElegido(nodo.id)}
               panOnScroll={false} zoomOnScroll={false} preventScrolling={false}
+              colorMode="light" proOptions={{ hideAttribution: true }}
             >
-              <Background gap={22} color="#dbe3ec" />
-              <Controls showInteractive={false} position="bottom-left" />
+              <Background gap={22} color="#dfe5ee" />
+              <ControlesDiagrama />
             </ReactFlow>
           </div>
         </Tarjeta>
@@ -295,5 +296,17 @@ export default function Metodologia() {
         </ol>
       </Tarjeta>
     </>
+  );
+}
+
+// Botones de zoom con nombre (más claros que los íconos de la librería)
+function ControlesDiagrama() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  return (
+    <Panel position="top-right" className="controles-diagrama">
+      <button type="button" className="boton boton-secundario boton-chico" onClick={() => zoomIn({ duration: 200 })}>＋ Acercar</button>
+      <button type="button" className="boton boton-secundario boton-chico" onClick={() => zoomOut({ duration: 200 })}>－ Alejar</button>
+      <button type="button" className="boton boton-secundario boton-chico" onClick={() => fitView({ padding: 0.08, duration: 300 })}>⤢ Ver todo</button>
+    </Panel>
   );
 }

@@ -3,9 +3,9 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
 export const PERMISOS = {
-  publico: ['panel', 'rankings', 'metodologia', 'descargas'],
-  analista: ['panel', 'rankings', 'metodologia', 'descargas', 'comparar', 'calidad', 'reportes', 'asistente', 'exportar_todo'],
-  administrador: ['panel', 'rankings', 'metodologia', 'descargas', 'comparar', 'calidad', 'reportes', 'asistente', 'exportar_todo',
+  publico: ['panel', 'rankings', 'metodologia', 'descargas', 'asistente', 'equipo'],
+  analista: ['panel', 'rankings', 'metodologia', 'descargas', 'equipo', 'comparar', 'calidad', 'reportes', 'asistente', 'exportar_todo'],
+  administrador: ['panel', 'rankings', 'metodologia', 'descargas', 'equipo', 'comparar', 'calidad', 'reportes', 'asistente', 'exportar_todo',
     'cargar', 'parametros', 'catalogos', 'perfiles', 'registro'],
 };
 export const NOMBRE_PERFIL = { publico: 'Público', analista: 'Analista', administrador: 'Administrador' };

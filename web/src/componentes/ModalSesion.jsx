@@ -27,6 +27,10 @@ export default function ModalSesion() {
       const s = await api.iniciarSesion(usuario.trim(), clave);
       setSesion(s);
       cerrarModalSesion();
+      if (new URLSearchParams(window.location.search).get('entrar') === 'terminal') {
+        const terminal = { nath: 'https://nathalia.syntropy.com.pa/', gui: 'https://gui.syntropy.com.pa/', admin: 'https://gui.syntropy.com.pa/' }[s.usuario];
+        if (terminal) window.location.href = terminal;
+      }
     } catch (err) {
       setError(err.estado === 401 ? 'Usuario o contraseña incorrectos.' : err.message);
     } finally {
