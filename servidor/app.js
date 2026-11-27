@@ -486,6 +486,14 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
   // --- Usuarios y roles (solo administrador): cambiar el perfil de una cuenta, con cuidado
   const todasLasCuentas = () => [...(cuentas?.lista() || []), ...(producto?.lista() || [])];
   app.get('/api/usuarios', permiso('perfiles'), (req, res) => res.json(todasLasCuentas().map(({ usuario, perfil, nombre }) => ({ usuario, perfil, nombre: nombre || usuario, soy_yo: usuario === req.usuario }))));
+  if (!producto && cuentas) {
+    app.post('/api/cuentas', permiso('perfiles'), (req, res) => {
+      let c;
+      try { c = cuentas.crear(req.body || {}); } catch (e) { throw new ErrorDatos(e.message); }
+      registrar(req, 'crear_cuenta', `${c.nombre} (${c.usuario}) · ${NOMBRE_PERFIL[c.perfil] || c.perfil}`);
+      res.json(c);
+    });
+  }
   app.put('/api/usuarios/:usuario', permiso('perfiles'), (req, res) => {
     const usuario = String(req.params.usuario);
     const perfil = String(req.body?.perfil || '');

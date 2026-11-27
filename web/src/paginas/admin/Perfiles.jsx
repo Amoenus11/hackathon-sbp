@@ -29,7 +29,7 @@ function UsuariosRoles() {
   return (
     <Tarjeta titulo="Usuarios y roles" subtitulo="Cambia el perfil de cada cuenta. Siempre debe quedar al menos un administrador." id="usuarios-roles">
       {mensaje && <p className={mensaje.ok ? 'mensaje-exito' : 'mensaje-error'}>{mensaje.texto}</p>}
-      {meta?.modo === 'producto' && (
+      {(
         <form className="agregar-persona" onSubmit={crear}>
           <strong>Agregar persona</strong>
           <input placeholder="Nombre" value={nueva.nombre} onChange={(e) => setNueva({ ...nueva, nombre: e.target.value })} required />
@@ -44,7 +44,7 @@ function UsuariosRoles() {
         <div className="entrega-cuenta">
           <p>Entrega estos datos a <strong>{entregada.nombre}</strong> (la contraseña solo se muestra ahora; podrá activar sus 2 pasos al entrar):</p>
           <p className="entrega-datos">Usuario: <code>{entregada.usuario}</code> · Contraseña temporal: <code>{entregada.clave_temporal}</code>
-            <button type="button" className="boton boton-secundario boton-chico" onClick={() => navigator.clipboard?.writeText(`Usuario: ${entregada.usuario}\nContraseña: ${entregada.clave_temporal}\nhttps://demo.syntropy.com.pa`)}>Copiar</button></p>
+            <button type="button" className="boton boton-secundario boton-chico" onClick={() => navigator.clipboard?.writeText(`Usuario: ${entregada.usuario}\nContraseña: ${entregada.clave_temporal}\n${window.location.origin}`)}>Copiar</button></p>
         </div>
       )}
       {estado.error && <p className="mensaje-error">{estado.error.message}</p>}

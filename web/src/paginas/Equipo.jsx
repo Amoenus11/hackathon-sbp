@@ -7,24 +7,27 @@ const numero = new Intl.NumberFormat('es-PA');
 const PERSONAS = [
   {
     iniciales: 'G',
-    nombre: 'Gui',
+    foto: '/equipo/guillermo.png',
+    nombre: 'Guillermo Aparicio',
     rol: 'Dirección y producto',
     texto: 'Define la estrategia y las prioridades, decide en 2 minutos, dirige a Claude y cuida el reloj del equipo.',
     etiquetas: ['Estrategia', 'Prioridades', 'Decisiones'],
   },
   {
     iniciales: 'N',
-    nombre: 'Nathalia',
+    foto: '/equipo/nathalia.webp',
+    nombre: 'Nathalia Asyn',
     rol: 'Datos y verificación',
     texto: 'Entiende el AT03 a fondo, verifica cada cifra (cascada E1–E4 y reconciliaciones) y prepara los datos que pedirá el jurado. Tiene su propio Claude Code en el servidor.',
     etiquetas: ['AT03', 'Cascada E1–E4', 'Reconciliaciones'],
   },
   {
     iniciales: 'A',
-    nombre: 'Aníbal',
-    rol: 'Historia, pitch y demostración',
-    texto: 'La voz del equipo: arma la presentación y el guion, ensaya, conduce la demo en vivo, prueba la app como Público y como jurado, y revisa el README.',
-    etiquetas: ['Pitch', 'Demo en vivo', 'Pruebas de usuario'],
+    foto: '/equipo/anibal.webp',
+    nombre: 'Aníbal Abrego',
+    rol: 'Historia, pitch, usabilidad y experiencia',
+    texto: 'La voz del equipo y el guardián de la experiencia: arma el pitch, conduce la demo y cuida que cada pantalla sea clara y usable para el público, la analista y quien administra.',
+    etiquetas: ['Pitch', 'Usabilidad', 'Experiencia de usuario'],
   },
 ];
 
@@ -141,7 +144,7 @@ export default function Equipo() {
         <div className="eq-personas">
           {PERSONAS.map((p) => (
             <article key={p.nombre} className="eq-persona">
-              <div className="eq-avatar" aria-hidden="true">{p.iniciales}</div>
+              <div className="eq-avatar" aria-hidden="true">{p.foto ? <img src={p.foto} alt="" className="eq-foto" /> : p.iniciales}</div>
               <h3 className="eq-persona-nombre">{p.nombre}</h3>
               <p className="eq-persona-rol">{p.rol}</p>
               <p className="eq-persona-texto">{p.texto}</p>

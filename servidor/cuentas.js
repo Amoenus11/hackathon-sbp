@@ -66,12 +66,21 @@ export function crearCuentas(carpetaLocal, definicion, urlPublica) {
   if (enlaces.length) console.log(`\n  Enlaces de un solo uso (48 h):\n  ${enlaces.join('\n  ')}\n`);
 
   return {
+    crear({ usuario, nombre, perfil }) {
+      const u = String(usuario || '').trim().toLowerCase();
+      if (!/^[a-z0-9-]{3,24}$/.test(u)) throw new Error('El usuario debe tener de 3 a 24 letras, números o guiones.');
+      if (cuentas.some((x) => x.usuario === u)) throw new Error('Ese usuario ya existe.');
+      const clave = claveAlAzar();
+      cuentas.push({ usuario: u, nombre: String(nombre || u).slice(0, 60), perfil: perfil === 'administrador' ? 'administrador' : 'analista', huella: huellaClave(clave) });
+      guardar();
+      return { usuario: u, nombre: String(nombre || u).slice(0, 60), perfil, clave_temporal: clave };
+    },
     fijarPerfil(usuario, perfil) {
       const c = cuentas.find((x) => x.usuario === usuario);
       if (!c) return false;
       c.perfil = perfil; guardar(); return true;
     },
-    lista: () => cuentas.map(({ usuario, perfil, huella: h }) => ({ usuario, perfil, huella: h })),
+    lista: () => cuentas.map(({ usuario, perfil, nombre, huella: h }) => ({ usuario, perfil, nombre, huella: h })),
     /** Devuelve { usuario, clave } y borra el enlace: solo funciona una vez. */
     revelar(token) {
       const c = cuentas.find((x) => x.enlace && x.enlace.token === huella(String(token)) && x.enlace.caduca > Date.now());

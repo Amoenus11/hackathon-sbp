@@ -99,7 +99,7 @@ function Portada() {
       <div className="pt-contenido pt-centro">
         <h1 className="pt-marca">SYNTROPY</h1>
         <p className="pt-lema">Del caos de datos al orden de las decisiones</p>
-        <p className="pt-firma">Gui · Nathalia · Aníbal — Hackathon SBP 2026</p>
+        <p className="pt-firma">Guillermo Aparicio · Nathalia Asyn · Aníbal Abrego — Hackathon SBP 2026</p>
       </div>
     </>
   );
