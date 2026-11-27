@@ -472,6 +472,23 @@ export function crearApp({ entorno = {}, carpetaLocal = 'datos-locales', carpeta
     registrar(req, 'parametros', JSON.stringify(nuevos));
     res.json(nuevos);
   });
+  // --- Usuarios y roles (solo administrador): cambiar el perfil de una cuenta, con cuidado
+  const todasLasCuentas = () => [...(cuentas?.lista() || []), ...(producto?.lista() || [])];
+  app.get('/api/usuarios', permiso('perfiles'), (req, res) => res.json(todasLasCuentas().map(({ usuario, perfil, nombre }) => ({ usuario, perfil, nombre: nombre || usuario, soy_yo: usuario === req.usuario }))));
+  app.put('/api/usuarios/:usuario', permiso('perfiles'), (req, res) => {
+    const usuario = String(req.params.usuario);
+    const perfil = String(req.body?.perfil || '');
+    if (!['analista', 'administrador'].includes(perfil)) throw new ErrorDatos('Perfil no válido: elige Analista o Administrador.');
+    const lista = todasLasCuentas();
+    const actual = lista.find((c) => c.usuario === usuario);
+    if (!actual) throw Object.assign(new Error('No existe ese usuario.'), { estado: 404 });
+    if (actual.perfil === 'administrador' && perfil !== 'administrador' && lista.filter((c) => c.perfil === 'administrador').length <= 1) {
+      throw new ErrorDatos('Debe quedar al menos un administrador.');
+    }
+    if (!(cuentas?.fijarPerfil(usuario, perfil) || producto?.fijarPerfil(usuario, perfil))) throw new ErrorDatos('No se pudo cambiar el perfil.');
+    registrar(req, 'cambiar_perfil', `${usuario}: ${NOMBRE_PERFIL[actual.perfil]} → ${NOMBRE_PERFIL[perfil]}`);
+    res.json({ usuario, perfil });
+  });
   app.get('/api/registro', permiso('registro'), (req, res) => res.json(estado.registro()));
   app.get('/api/cargas', permiso('calidad'), (req, res) => res.json(estado.cargas()));
 

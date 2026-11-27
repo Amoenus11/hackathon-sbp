@@ -60,6 +60,11 @@ export function crearProducto(carpetaLocal) {
       const cuenta = cuentas.find((x) => x.usuario === usuario);
       if (cuenta) { cuenta.dos_pasos = true; guardar(); }
     },
+    fijarPerfil(usuario, perfil) {
+      const c = cuentas.find((x) => x.usuario === usuario);
+      if (!c) return false;
+      c.perfil = perfil; guardar(); return true;
+    },
     tieneDosPasos: (usuario) => Boolean(cuentas.find((x) => x.usuario === usuario)?.dos_pasos),
   };
 }

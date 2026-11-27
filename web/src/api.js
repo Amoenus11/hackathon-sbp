@@ -125,6 +125,8 @@ export const api = {
   extraer: (cuerpo) => solicitar('/extraccion', { metodo: 'POST', cuerpo: { ...cuerpo, formato: 'json' } }),
 
   // Asistente IA (solo explica resultados ya calculados)
+  usuarios: () => solicitar('/usuarios'),
+  cambiarPerfil: (usuario, perfil) => solicitar(`/usuarios/${encodeURIComponent(usuario)}`, { metodo: 'PUT', cuerpo: { perfil } }),
   preguntarIA: (pregunta, fecha, pantalla) => solicitar('/ia', { metodo: 'POST', cuerpo: { pregunta, fecha, pantalla } }),
 };
 
